@@ -46,7 +46,6 @@ module.exports = new EntitySchema({
     },
 
   // Index per assegurar que un usuari no pugui estar en el mateix equip més d'una vegada
-  // Això no impedeix que un usuari estigui en diferents equips, però sí que no pugui estar en el mateix equip més d'una vegada
   indices: [
     {
       name: 'UQ_team_user',

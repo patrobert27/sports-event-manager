@@ -26,6 +26,9 @@ router.get(
   authController.googleCallback
 );
 
+// Dev login route (development only)
+router.post('/dev', authController.devLogin);
+
 /**
  * 3. Obtenir perfil de l'usuari autenticat
  * Ruta protegida: requereix token vàlid (authMiddleware)

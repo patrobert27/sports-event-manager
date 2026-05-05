@@ -33,7 +33,7 @@ export default function Header({ onToggleSidebar }) {
             <h2 className="text-1xl font-bold text-white">
               {user?.first_name} {user?.last_name}
             </h2>
-            <p className="text-white/70 text-sm mt-0.5">{user?.email} - {user?.role?.name || 'alumne'}</p>
+            <p className="text-white/70 text-sm mt-0.5">{user?.email} - {user?.role?.name || 'estudiant'}</p>
           </div>
         </div>
       </div>

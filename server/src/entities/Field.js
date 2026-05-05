@@ -1,10 +1,10 @@
 const { EntitySchema } = require('typeorm');
 
 module.exports = new EntitySchema({
-  name: 'Field',
-  tableName: 'fields',
+    name: 'Field',
+    tableName: 'fields',
 
-  columns: {
+    columns: {
         id: {
             primary: true,
             type: 'int',
@@ -26,6 +26,8 @@ module.exports = new EntitySchema({
         number_of_courts: {
             type: 'int',
             nullable: true,
+
         },
-  },
+
+    },
 });

@@ -19,7 +19,9 @@ function checkAbility(action, subject) {
 
 			// CAS 1: el subject és un string (tipus de recurs)
 			if (typeof subject === 'string') {
-				if (ability.can(action, subject)) {
+				const hasAbility = ability.can(action, subject);
+				// console.log(`[checkAbility] Avaluant: ${action} sobre ${subject} -> Resultat: ${hasAbility}`);
+				if (hasAbility) {
 					return next();
 				}
 				return res.status(403).send('Accés denegat');

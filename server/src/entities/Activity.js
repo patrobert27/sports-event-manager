@@ -18,6 +18,13 @@ module.exports = new EntitySchema({
             nullable: false,
         },
 
+        color: {
+            type: 'varchar',
+            length: 20,
+            nullable: false,
+            default: '#4FA8F5',
+        },
+
         min_players: {
             type: 'int',
             nullable: true,

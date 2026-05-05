@@ -3,235 +3,317 @@ const Competition = require("../entities/Competition");
 const Activity = require("../entities/Activity");
 const Field = require("../entities/Field");
 const User = require("../entities/User");
-const authService = require("./authService");
 
+/**
+ * CompetitionService
+ * 
+ * Aquesta classe gestiona tota la lògica de les competicions (o jornades).
+ * Aquí definim com es creen, com es llisten i com s'actualitzen les jornades esportives.
+ */
 class CompetitionService {
-	constructor() {
-		this.repo = null;
-		this.activityRepo = null;
-		this.fieldRepo = null;
-		this.userRepo = null;
-	}
-
-	getRepo() {
-		if (!this.repo) {
-            this.repo = AppDataSource.getRepository(Competition);
-		}
-		return this.repo;
-	}
-
+	
+	// Repositoris auxiliars per a validacions
 	getActivityRepo() {
-		if (!this.activityRepo) {
-            this.activityRepo = AppDataSource.getRepository(Activity);
-		}
-		return this.activityRepo;
+		return AppDataSource.getRepository(Activity);
 	}
-
+	
 	getFieldRepo() {
-		if (!this.fieldRepo) {
-            this.fieldRepo = AppDataSource.getRepository(Field);
-		}
-		return this.fieldRepo;
+		return AppDataSource.getRepository(Field);
 	}
-
+	
 	getUserRepo() {
-		if (!this.userRepo) {
-            this.userRepo = AppDataSource.getRepository(User);
-		}
-		return this.userRepo;
+		return AppDataSource.getRepository(User);
 	}
 
-	/** Elimina dades sensibles com la contrasenya del creador */
-    _sanitizeCompetition(comp) {
-        if (!comp) {
-            return comp;
-        }
-        // fem una còpia superficial per evitar modificar l’objecte de l’ORM
-        const safe = { ...comp };
-        if (safe.creator) {
-            try {
-                // authService.sanitizeUser elimina la contrasenya
-                safe.creator = authService.sanitizeUser(safe.creator);
-            } catch (e) {
-                // fallback: eliminar la contrasenya directament
-                const { password, ...rest } = safe.creator;
-                safe.creator = rest;
-            }
-        }
-        return safe;
-    }
+	/**
+	 * Crea una nova competició.
+	 * Fem servir una transacció per assegurar que si falla un pas, no es guardi res a mitges.
+	 */
+	async createCompetition(competitionData, creatorId) {
+		return await AppDataSource.transaction(async (transactionalEntityManager) => {
+			// 1. Validacions inicials
+			const { 
+				name, 
+				date, 
+				start_time, 
+				activity_id, 
+				field_id, 
+				available_courts, 
+				registration_start, 
+				registration_deadline 
+			} = competitionData;
 
-	/** Create a new Competition with validations and relations */
-	async createCompetition(data, creatorId) {
-		if (!data || typeof data !== "object") {
-			const err = new Error("Invalid payload");
-			err.status = 400;
-			throw err;
-		}
+			// Comprovem que la data límit d'inscripció sigui abans de la jornada
+			if (date && registration_deadline) {
+				const eventDate = new Date(date);
+				const deadlineDate = new Date(registration_deadline);
+				
+				if (deadlineDate > eventDate) {
+					const dateError = new Error(
+						"El tancament d'inscripcions no pot ser posterior a la data de l'esdeveniment."
+					);
+					dateError.status = 400;
+					throw dateError;
+				}
+			}
 
-		const { name, available_courts, activity_id, field_id } = data;
+			// Comprovem que l'inici del registre sigui abans que el tancament
+			if (registration_start && registration_deadline) {
+				const startDate = new Date(registration_start);
+				const limitDate = new Date(registration_deadline);
+				
+				if (startDate >= limitDate) {
+					const sequenceError = new Error(
+						"L'inici d'inscripcions ha de ser anterior al tancament."
+					);
+					sequenceError.status = 400;
+					throw sequenceError;
+				}
+			}
 
-		if (!name || !name.trim()) {
-			const err = new Error("El campo 'name' es obligatorio");
-			err.status = 400;
-			throw err;
-		}
+			// 2. Carrega de dades (Activitat i Instal·lació)
+			// Busquem si l'esport triat existeix
+			const activityEntity = await this.getActivityRepo().findOne({ 
+				where: { 
+					id: activity_id 
+				} 
+			});
+			
+			if (!activityEntity) {
+				const activityError = new Error("L'activitat seleccionada no existeix.");
+				activityError.status = 404;
+				throw activityError;
+			}
 
-		if (available_courts === undefined || available_courts === null) {
-			const err = new Error("El campo 'available_courts' es obligatorio");
-			err.status = 400;
-			throw err;
-		}
+			let fieldEntity = null;
+			let courtsCount = available_courts;
 
-		const courts = Number(available_courts);
-		if (!Number.isInteger(courts) || courts <= 0) {
-			const err = new Error("'available_courts' debe ser un entero mayor que 0");
-			err.status = 400;
-			throw err;
-		}
+			// Si ens han passat una instal·lació, la busquem
+			if (field_id) {
+				fieldEntity = await this.getFieldRepo().findOne({ 
+					where: { 
+						id: field_id 
+					} 
+				});
+				
+				if (!fieldEntity) {
+					const fieldError = new Error("La instal·lació seleccionada no existeix.");
+					fieldError.status = 404;
+					throw fieldError;
+				}
+				
+				// Si no ens diuen quantes pistes, agafem les que té el camp per defecte
+				if (!courtsCount || courtsCount === 0) {
+					courtsCount = fieldEntity.number_of_courts || 1;
+				}
+			}
 
-		if (!activity_id) {
-			const err = new Error("El campo 'activity_id' es obligatorio");
-			err.status = 400;
-			throw err;
-		}
+			// Busquem l'usuari que està creant la competició
+			const creatorUser = await this.getUserRepo().findOne({ 
+				where: { 
+					id: creatorId 
+				} 
+			});
 
-		if (!field_id) {
-			const err = new Error("El campo 'field_id' es obligatorio");
-			err.status = 400;
-			throw err;
-		}
+			// 3. Lògica de negoci (Creació de l'entitat)
+			const newCompetition = transactionalEntityManager.create(Competition, {
+				name: name,
+				date: date || null,
+				start_time: start_time || null,
+				status: "REGISTRATION",
+				available_courts: courtsCount || 1,
+				registration_start: registration_start || new Date(),
+				registration_deadline: registration_deadline || null,
+				activity: activityEntity,
+				field: fieldEntity,
+				creator: creatorUser
+			});
 
-		// check referenced entities
-		const activity = await this.getActivityRepo().findOne({ where: { id: activity_id } });
-		if (!activity) {
-			const err = new Error("Activity no encontrada");
-			err.status = 404;
-			throw err;
-		}
+			// 4. Guardar dades
+			const savedCompetition = await transactionalEntityManager.save(
+				Competition, 
+				newCompetition
+			);
 
-		const field = await this.getFieldRepo().findOne({ where: { id: field_id } });
-		if (!field) {
-			const err = new Error("Field no encontrado");
-			err.status = 404;
-			throw err;
-		}
+			// 5. Resposta
+			// Tornem a carregar la competició per retornar-la amb totes les dades relacionades
+			return this.getCompetitionById(
+				savedCompetition.id, 
+				transactionalEntityManager
+			);
+		});
+	}
 
-		const creator = await this.getUserRepo().findOne({ where: { id: creatorId } });
-		if (!creator) {
-			const err = new Error("Creator (User) no encontrado");
-			err.status = 404;
-			throw err;
-		}
+	/**
+	 * Retorna la llista de totes les competicions guardades.
+	 */
+	async listCompetitions() {
+		// 1. Carrega de dades
+		const repository = AppDataSource.getRepository(Competition);
 
-		const repo = this.getRepo();
-
-		const competition = repo.create({
-			name: name.trim(),
-			date: data.date || null,
-			start_time: data.start_time || null,
-			status: data.status || "REGISTRATION",
-			registration_deadline: data.registration_deadline || null,
-			available_courts: courts,
-			activity: { id: activity_id },
-			field: { id: field_id },
-			creator: { id: creatorId },
+		// Busquem totes les jornades i incloem l'activitat, el camp i el creador
+		const competitionsFound = await repository.find({
+			relations: [
+				"activity", 
+				"field", 
+				"creator"
+			],
+			order: { 
+				id: "DESC" 
+			}
 		});
 
-		const saved = await repo.save(competition);
-
-		return this.getCompetitionById(saved.id);
+		// 2. Resposta
+		// Netegem les dades sensibles de cada competició
+		return competitionsFound.map((comp) => {
+			return this._sanitizeCompetition(comp);
+		});
 	}
 
-	/** List competitions with relations */
-	async listCompetitions() {
-		const comps = await this.getRepo().find({ relations: { activity: true, field: true, creator: true } });
-		return comps.map(c => this._sanitizeCompetition(c));
-	}
+	/**
+	 * Obté una competició pel seu ID.
+	 */
+	async getCompetitionById(id, entityManager = null) {
+		// 1. Validacions i Càrrega
+		const repository = entityManager 
+			? entityManager.getRepository(Competition) 
+			: AppDataSource.getRepository(Competition);
 
-	/** Get competition by id, throw 404 if not found */
-	async getCompetitionById(id) {
-		const comp = await this.getRepo().findOne({ where: { id }, relations: { activity: true, field: true, creator: true } });
-		if (!comp) {
-			const err = new Error("Competition no encontrada");
-			err.status = 404;
-			throw err;
+		const competitionFound = await repository.findOne({
+			where: { 
+				id: id 
+			},
+			relations: [
+				"activity", 
+				"field", 
+				"creator"
+			]
+		});
+
+		if (!competitionFound) {
+			const notFoundError = new Error("No s'ha trobat cap competició amb aquest ID.");
+			notFoundError.status = 404;
+			throw notFoundError;
 		}
-		return this._sanitizeCompetition(comp);
+
+		// 2. Resposta
+		return this._sanitizeCompetition(competitionFound);
 	}
 
-	/** Update competition fields allowed and validate relations */
+	/**
+	 * Actualitza la informació d'una competició.
+	 */
 	async updateCompetition(id, updateData) {
-		const repo = this.getRepo();
-		const comp = await repo.findOne({ where: { id } });
-		if (!comp) {
-			const err = new Error("Competition no encontrada");
-			err.status = 404;
-			throw err;
+		const repository = AppDataSource.getRepository(Competition);
+
+		// 1. Carrega de dades (Verifiquem que existeix)
+		const competitionToUpdate = await repository.findOne({
+			where: { 
+				id: id 
+			},
+			relations: [
+				"activity", 
+				"field"
+			]
+		});
+
+		if (!competitionToUpdate) {
+			const updateError = new Error("No es pot actualitzar una competició inexistent.");
+			updateError.status = 404;
+			throw updateError;
 		}
 
-		if (updateData.available_courts !== undefined) {
-			const courts = Number(updateData.available_courts);
-			if (!Number.isInteger(courts) || courts <= 0) {
-				const err = new Error("'available_courts' debe ser un entero mayor que 0");
-				err.status = 400;
-				throw err;
-			}
-			comp.available_courts = courts;
+		// 2. Lògica de negoci (Actualització de relacions)
+		if (updateData.activity_id) {
+			competitionToUpdate.activity = { 
+				id: updateData.activity_id 
+			};
 		}
 
-		if (updateData.activity_id !== undefined) {
-			const activity = await this.getActivityRepo().findOne({ where: { id: updateData.activity_id } });
-			if (!activity) {
-				const err = new Error("Activity no encontrada");
-				err.status = 404;
-				throw err;
-			}
-			comp.activity = { id: updateData.activity_id };
+		if (updateData.field_id) {
+			competitionToUpdate.field = { 
+				id: updateData.field_id 
+			};
 		}
 
-		if (updateData.field_id !== undefined) {
-			const field = await this.getFieldRepo().findOne({ where: { id: updateData.field_id } });
-			if (!field) {
-				const err = new Error("Field no encontrado");
-				err.status = 404;
-				throw err;
-			}
-			comp.field = { id: updateData.field_id };
+		if (updateData.available_courts) {
+			competitionToUpdate.available_courts = Number(updateData.available_courts);
 		}
 
-		// Allowed scalar fields
-		const allowed = [
-			"name",
-			"date",
-			"start_time",
-			"status",
-			"registration_deadline",
+		// 3. Actualització de camps de text i dates
+		const scalarFields = [
+			"name", 
+			"date", 
+			"start_time", 
+			"status", 
+			"registration_start", 
+			"registration_deadline"
 		];
 
-		for (const key of allowed) {
-			if (updateData[key] !== undefined) {
-				comp[key] = updateData[key];
+		scalarFields.forEach((fieldName) => {
+			if (updateData[fieldName] === undefined) {
+				return; 
 			}
-		}
 
-		const saved = await repo.save(comp);
-		return this.getCompetitionById(saved.id);
+			const newValue = updateData[fieldName];
+
+			// Tractament especial per a dates
+			const isDateField = [
+				"date", 
+				"registration_start", 
+				"registration_deadline"
+			].includes(fieldName);
+
+			if (isDateField) {
+				if (!newValue || newValue === "") {
+					competitionToUpdate[fieldName] = null;
+				} else {
+					const parsedDate = new Date(newValue);
+					competitionToUpdate[fieldName] = isNaN(parsedDate.getTime()) 
+						? null 
+						: parsedDate;
+				}
+			} else {
+				competitionToUpdate[fieldName] = newValue || null;
+			}
+		});
+
+		// 4. Guardar dades
+		const savedCompetition = await repository.save(competitionToUpdate);
+
+		// 5. Resposta
+		return this.getCompetitionById(savedCompetition.id);
 	}
 
-	/** Delete competition following project pattern (hard delete) */
+	/**
+	 * Elimina una competició de la base de dades.
+	 */
 	async deleteCompetition(id) {
-		const repo = this.getRepo();
-		const comp = await repo.findOne({ where: { id } });
-		if (!comp) {
-			const err = new Error("Competition no encontrada");
-			err.status = 404;
-			throw err;
+		// 1. Lògica d'eliminació
+		const repository = AppDataSource.getRepository(Competition);
+		const deleteResult = await repository.delete(id);
+
+		// 2. Validació
+		if (deleteResult.affected === 0) {
+			const deleteError = new Error("No s'ha pogut eliminar la competició perquè no existeix.");
+			deleteError.status = 404;
+			throw deleteError;
 		}
 
-		// hard delete using remove to respect relations cascade if configured
-		await repo.remove(comp);
-		return;
+		// 3. Resposta
+		return true;
+	}
+
+	/**
+	 * Neteja dades sensibles (com passwords) abans d'enviar la resposta.
+	 */
+	_sanitizeCompetition(competition) {
+		if (competition && competition.creator) {
+			// Eliminem el password del creador
+			delete competition.creator.password;
+		}
+		
+		return competition;
 	}
 }
 

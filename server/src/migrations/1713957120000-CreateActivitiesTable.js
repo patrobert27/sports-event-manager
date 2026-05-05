@@ -8,6 +8,7 @@ class CreateActivitiesTable1713957120000 {
       CREATE TABLE IF NOT EXISTS activities (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
+        color VARCHAR(20) NOT NULL DEFAULT '#4FA8F5',
         min_players INT CHECK (min_players >= 0),
         max_players INT CHECK (max_players >= min_players)
       )

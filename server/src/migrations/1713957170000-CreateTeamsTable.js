@@ -10,7 +10,7 @@ class CreateTeamsTable1713957170000 {
         name VARCHAR(100) NOT NULL,
         competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
         group_id INT REFERENCES groups(id),
-        code VARCHAR(5) UNIQUE NOT NULL, 
+        code VARCHAR(5) UNIQUE NULL, 
         -- per si volem un A1, A2, B1, B2, etc.
         captain_id INT NOT NULL REFERENCES users(id),
         teacher_id INT REFERENCES users(id),

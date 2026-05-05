@@ -1,126 +1,106 @@
 const competitionService = require('../services/competitionService');
-const authService = require('../services/authService');
+const asyncHandler = require('../utils/asyncHandler');
 
+/**
+ * CompetitionController
+ * 
+ * Aquest controlador gestiona les peticions relacionades amb les competicions (o jornades).
+ */
 const competitionController = {
 
-  /** Crea una nova jornada/competició */
-  async create(req, res) {
-    try {
-      // ID de l'usuari creador (si està autenticat)
-      const creatorId = req.user?.id || null;
+  /** 
+   * Crea una nova jornada/competició al sistema.
+   */
+  create: asyncHandler(async (request, response) => {
+    // 1. Validacions
+    // Traiem l'ID de l'usuari que crea la competició del token de sessió
+    const creatorUserId = request.user?.id || null;
 
-      // Creem la competició amb les dades del body i l'usuari creador
-      const competition = await competitionService.createCompetition(
-        req.body,
-        creatorId
-      );
+    // 2. Carrega de dades i lògica de negoci
+    // Cridem al servei per crear la competició amb les dades del formulari
+    const newCompetition = await competitionService.createCompetition(
+      request.body,
+      creatorUserId
+    );
 
-      // Eliminem dades sensibles del creador abans de retornar resposta
-      if (competition?.creator) {
-        competition.creator = authService.sanitizeUser(competition.creator);
-      }
+    // 3. Resposta
+    // Retornem l'objecte creat amb un codi 201 (creat)
+    response.status(201).json({
+      success: true,
+      data: newCompetition
+    });
+  }),
 
-      res.status(201).json(competition);
-    } catch (err) {
-      const status = err?.status || 400;
+  /** 
+   * Retorna una llista amb totes les competicions que hi ha a la base de dades.
+   */
+  list: asyncHandler(async (request, response) => {
+    // 1. Carrega de dades
+    const competitionsList = await competitionService.listCompetitions();
+    
+    // 2. Resposta
+    response.status(200).json({
+      success: true,
+      data: competitionsList
+    });
+  }),
 
-      res.status(status).json({
-        message: 'Error creant la jornada',
-        error: err.message
-      });
-    }
-  },
+  /** 
+   * Obté la informació detallada d'una competició concreta pel seu ID.
+   */
+  getById: asyncHandler(async (request, response) => {
+    // 1. Validacions
+    const { id } = request.params;
+    const competitionId = Number(id);
+    
+    // 2. Carrega de dades
+    const competitionFound = await competitionService.getCompetitionById(competitionId);
+    
+    // 3. Resposta
+    response.status(200).json({
+      success: true,
+      data: competitionFound
+    });
+  }),
 
-  /** Retorna totes les competicions */
-  async list(req, res) {
-    try {
-      const competitions = await competitionService.listCompetitions();
+  /** 
+   * Actualitza les dades d'una competició existent (nom, dates, etc.).
+   */
+  update: asyncHandler(async (request, response) => {
+    // 1. Validacions
+    const { id } = request.params;
+    const competitionId = Number(id);
+    
+    // 2. Lògica de negoci (actualització)
+    const updatedCompetition = await competitionService.updateCompetition(
+      competitionId,
+      request.body
+    );
+    
+    // 3. Resposta
+    response.status(200).json({
+      success: true,
+      data: updatedCompetition
+    });
+  }),
 
-      // Netegem dades sensibles de cada creador
-      const safe = competitions.map(c => {
-        if (c?.creator) {
-          c.creator = authService.sanitizeUser(c.creator);
-        }
-        return c;
-      });
-
-      res.status(200).json(safe);
-    } catch (err) {
-      const status = err?.status || 500;
-
-      res.status(status).json({
-        message: 'Error llistant les jornades',
-        error: err.message
-      });
-    }
-  },
-
-  /** Obté una competició concreta per ID */
-  async getById(req, res) {
-    try {
-      const { id } = req.params;
-
-      const competition = await competitionService.getCompetitionById(Number(id));
-
-      // Netegem el creador si existeix
-      if (competition?.creator) {
-        competition.creator = authService.sanitizeUser(competition.creator);
-      }
-
-      res.status(200).json(competition);
-    } catch (err) {
-      const status = err?.status || 500;
-
-      res.status(status).json({
-        message: 'Error obtenint la jornada',
-        error: err.message
-      });
-    }
-  },
-
-  /** Actualitza una competició existent */
-  async update(req, res) {
-    try {
-      const { id } = req.params;
-
-      const updated = await competitionService.updateCompetition(
-        Number(id),
-        req.body
-      );
-
-      // Netegem dades del creador després d'actualitzar
-      if (updated?.creator) {
-        updated.creator = authService.sanitizeUser(updated.creator);
-      }
-
-      res.status(200).json(updated);
-    } catch (err) {
-      const status = err?.status || 400;
-
-      res.status(status).json({
-        message: 'Error actualitzant la jornada',
-        error: err.message
-      });
-    }
-  },
-
-  /** Elimina una competició */
-  async delete(req, res) {
-    try {
-      const { id } = req.params;
-
-      await competitionService.deleteCompetition(Number(id));
-
-      res.status(200).json({ message: 'Jornada eliminada' });
-    } catch (err) {
-      const status = err?.status || 500;
-
-      res.status(status).json({
-        message: 'Error eliminant la jornada',
-        error: err.message
-      });
-    }
-  },
+  /** 
+   * Elimina una competició de la base de dades.
+   */
+  delete: asyncHandler(async (request, response) => {
+    // 1. Validacions
+    const { id } = request.params;
+    const competitionId = Number(id);
+    
+    // 2. Lògica d'eliminació
+    await competitionService.deleteCompetition(competitionId);
+    
+    // 3. Resposta
+    response.status(200).json({ 
+      success: true,
+      message: 'Jornada eliminada correctament' 
+    });
+  })
 };
 
 module.exports = competitionController;

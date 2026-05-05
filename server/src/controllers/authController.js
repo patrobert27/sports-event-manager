@@ -1,63 +1,116 @@
-// Importem la llibreria per treballar amb JSON Web Tokens (JWT)
 const jwt = require("jsonwebtoken");
-
-// Importem el servei d'autenticació (lògica de negoci relacionada amb usuaris)
 const authService = require("../services/authService");
+const asyncHandler = require("../utils/asyncHandler");
 
-// Definim una classe controlador per gestionar autenticació
+/**
+ * AuthController
+ * 
+ * Aquest controlador s'encarrega de l'autenticació dels usuaris:
+ * login amb Google, login de desenvolupament i obtenir el perfil actual.
+ */
 class AuthController {
 
   /**
-   * Callback de Google OAuth
-   * Aquesta funció s'executa després que l'usuari faci login amb Google
-   * El backend rep l'usuari autenticat (req.user) i genera un token JWT
-   * Finalment redirigeix cap al frontend amb el token
+   * Resposta després de l'autenticació amb Google.
    */
-  googleCallback(req, res) {
-
-    // Creem un token JWT amb l'ID de l'usuari
-    const token = jwt.sign(
-      { userId: req.user.id }, // dades que guardem dins del token
-      process.env.JWT_SECRET,  // clau secreta per signar el token
-      { expiresIn: "1h" }      // temps d'expiració del token
+  googleCallback = asyncHandler(async (request, response) => {
+    // 1. Lògica de negoci
+    // Generem un token JWT que conté l'ID de l'usuari
+    const sessionToken = jwt.sign(
+      { 
+        id: request.user.id 
+      },
+      process.env.JWT_SECRET,
+      { 
+        expiresIn: "1h" 
+      }
     );
-
-    // Redirigim al frontend passant el token com a paràmetre a la URL
-    res.redirect(`http://localhost:5173/login?token=${token}`);
-  }
+    
+    // 2. Resposta
+    // Redirigim l'usuari al frontend passant el token per la URL
+    response.redirect(
+      `http://localhost:5173/login?token=${sessionToken}`
+    );
+  });
 
   /**
-   * Retorna les dades de l'usuari autenticat
-   * Aquesta és una ruta protegida (requereix login previ)
+   * Login per a desenvolupament (només per fer proves).
    */
-  async getProfile(req, res) {
-    try {
-      // Busquem l'usuari a la base de dades utilitzant l'ID del token
-      const user = await authService.findById(req.user.userId);
-
-      // Si no existeix l'usuari, retornem error 404
-      if (!user) {
-        return res.status(404).json({ message: "Usuari no trobat" });
-      }
-
-      // Netegem les dades de l'usuari (per exemple, eliminant password)
-      const userData = authService.sanitizeUser(user);
-
-      // Retornem les dades de l'usuari
-      res.json({
-        message: "Ruta protegida",
-        user: userData
-      });
-
-    } catch (err) {
-      // Si hi ha un error inesperat, el mostrem per consola
-      console.error("Error obtenint perfil:", err);
-
-      // Retornem error 500 (error intern del servidor)
-      res.status(500).json({ message: "Error del servidor" });
+  devLogin = asyncHandler(async (request, response) => {
+    // 1. Validacions
+    // No deixem fer servir aquest login si estem a producció per seguretat
+    if (process.env.NODE_ENV === 'production') {
+      const productionError = new Error('El login de desenvolupament està desactivat a producció');
+      productionError.status = 403;
+      throw productionError;
     }
-  }
+
+    const { email } = request.body || {};
+    
+    if (!email) {
+      const emailError = new Error('L\'email és necessari per al login de dev');
+      emailError.status = 400;
+      throw emailError;
+    }
+
+    // 2. Carrega de dades
+    // Busquem l'usuari a la base de dades. Si no existeix, el creem.
+    let userFound = await authService.findByEmail(email);
+    
+    if (!userFound) {
+      // Creem un usuari de prova ràpid
+      userFound = await authService.createOAuthUser({
+        email: email,
+        firstName: email.split('@')[0],
+        lastName: 'dev',
+        photo: null
+      });
+    }
+
+    // 3. Lògica de negoci
+    // Generem un token de sessió més llarg (8 hores) per no haver de fer login constantment en dev
+    const devToken = jwt.sign(
+      { 
+        id: userFound.id 
+      }, 
+      process.env.JWT_SECRET, 
+      { 
+        expiresIn: '8h' 
+      }
+    );
+    
+    // 4. Resposta
+    response.json({ 
+      success: true,
+      token: devToken 
+    });
+  });
+
+  /**
+   * Retorna el perfil de l'usuari que ha iniciat sessió.
+   */
+  getProfile = asyncHandler(async (request, response) => {
+    // 1. Carrega de dades
+    // El middleware 'authMiddleware' ja ens ha carregat l'usuari a 'request.user'
+    const currentUser = request.user;
+
+    if (!currentUser) {
+      const userNotFoundError = new Error("No s'ha trobat cap usuari amb aquesta sessió");
+      userNotFoundError.status = 404;
+      throw userNotFoundError;
+    }
+
+    // 2. Lògica (neteja)
+    // Treiem les dades sensibles (password) abans d'enviar el perfil
+    const cleanUserData = authService.sanitizeUser(currentUser);
+
+    // 3. Resposta
+    response.json({
+      success: true,
+      message: "Perfil de l'usuari obtingut correctament",
+      user: cleanUserData
+    });
+  });
 }
 
-// Exportem una instància del controlador (singleton)
 module.exports = new AuthController();

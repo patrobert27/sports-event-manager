@@ -1,48 +1,91 @@
-import React, { useContext } from "react";
-import { UserContext } from '../../../context/userContext';
+// 1. Imports de biblioteques
+import React, { useState } from "react";
 
-export default function CompetitionList({ competitions = [], onEdit, onDelete }) {
-  const { user } = useContext(UserContext) || {};
-  const isAdmin = user?.role?.name === "admin";
+// 2. Imports de components propis
+import CompetitionCard from "./CompetitionCard";
+import EditCompetitionModal from "./EditCompetitionModal";
+import { InfoAlert } from "../../../components/ui/Alerts";
 
-  if (!competitions.length) return <p>No hi ha jornades.</p>;
+/**
+ * COMPONENT: CompetitionList
+ * 
+ * Aquest component s'encarrega de pintar una llista de targetes (CompetitionCard).
+ * Si la llista està buida, mostra un missatge d'avís informatiu.
+ * També pot gestionar el modal d'edició si el component pare no ho fa.
+ */
+export default function CompetitionList({ 
+  competitions = [], 
+  onEdit 
+}) {
+  // --- 2. Hooks ---
+
+  // Guardem quina competició s'està editant actualment per obrir el modal
+  const [editingCompetition, setEditingCompetition] = useState(null);
+
+
+  // --- 3. Renderitzats condicionals ---
+
+  // Si no hi ha cap competició per mostrar...
+  const isEmpty = !competitions || competitions.length === 0;
+
+  if (isEmpty) {
+    return (
+      <InfoAlert 
+        message="No s'ha trobat cap jornada que coincideixi amb el que estàs buscant." 
+      />
+    );
+  }
+
+
+  // --- 4. Funcions / Handlers ---
+
+  /**
+   * Gestiona el clic al botó d'editar d'una de les targetes.
+   */
+  const handleEditClick = (competitionToEdit) => {
+    // Si el component que ens fa servir (el pare) ja té una funció per editar, la cridem
+    const parentHasEditHandler = typeof onEdit === "function";
+
+    if (parentHasEditHandler) {
+      onEdit(competitionToEdit);
+      return;
+    }
+    
+    // Si no, guardem la competició aquí mateix per obrir el nostre propi modal
+    setEditingCompetition(competitionToEdit);
+  };
+
+
+  // --- 5. Render (JSX) ---
 
   return (
-    <div className="grid md:grid-cols-2 gap-4">
-      {competitions.map((c) => (
-        <div key={c.id} className="bg-white rounded-xl p-4 border">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="font-semibold">{c.name}</h4>
-              <p className="text-sm text-muted">{c.status} · {c.available_courts} pistes</p>
-            </div>
-            <div className="text-right text-sm text-muted">
-              <div>{c.date ? new Date(c.date).toLocaleDateString() : "—"}</div>
-              <div className="mt-1">{c.start_time ?? ""}</div>
-            </div>
-          </div>
+    <>
+      {/* Contenidor de la llista en format vertical (columna) */}
+      <div className="flex flex-col gap-4 w-full">
+        {competitions.map((singleCompetition) => {
+          return (
+            <CompetitionCard
+              key={singleCompetition.id}
+              competition={singleCompetition}
+              onEdit={handleEditClick}
+            />
+          );
+        })}
+      </div>
 
-          <p className="text-xs text-muted mt-3">Activitat: {c.activity?.name ?? c.activity_id ?? '—'}</p>
-          <p className="text-xs text-muted">Pavelló: {c.field?.name ?? c.field_id ?? '—'}</p>
-
-          {isAdmin && (
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-3 py-1 bg-primary text-white rounded"
-                onClick={() => onEdit && onEdit(c)}
-              >
-                Editar
-              </button>
-              <button
-                className="px-3 py-1 bg-danger text-white rounded"
-                onClick={() => onDelete && onDelete(c.id)}
-              >
-                Eliminar
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+      {/* 
+          MODAL D'EDICIÓ:
+          Només el mostrem si tenim una competició seleccionada (editingCompetition)
+          i si el pare no s'està encarregant de l'edició.
+      */}
+      {!onEdit && editingCompetition && (
+        <EditCompetitionModal
+          competition={editingCompetition}
+          onClose={() => {
+            setEditingCompetition(null);
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -8,10 +8,11 @@ class CreateCompetitionsTable1713957150000 {
       CREATE TABLE IF NOT EXISTS competitions (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        date DATE,
+        date DATE NOT NULL,
         start_time TIME,
         status competition_status_enum DEFAULT 'REGISTRATION',
-        registration_deadline TIMESTAMP,
+        registration_deadline TIMESTAMP NOT NULL,
+        registration_start TIMESTAMP NOT NULL,
         activity_id INT NOT NULL REFERENCES activities(id),
         field_id INT NOT NULL REFERENCES fields(id),
         creator_id INT NOT NULL REFERENCES users(id),

@@ -1,114 +1,205 @@
+// 1. Imports de biblioteques (React, Redux, Router)
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+
+// 2. Imports d'accions de Redux (Auth i Competition)
 import { logout } from "../features/auth/authSlice";
 import { fetchUserProfile } from "../features/auth/authThunks";
-import { selectAuth } from "../features/auth/authSelectors";
-
 import { loadCompetitions } from "../features/competition/competitionThunks";
-import { selectCompetitions, selectCompetitionLoading } from "../features/competition/competitionSelectors";
 
-import JornadaCard from "../features/competition/components/JornadaCard";
-import CompetitionsList from "../features/competition/components/CompetitionsList";
+// 3. Imports de selectors de Redux
+import { 
+  selectAuth, 
+  selectIsLoadingUser 
+} from "../features/auth/authSelectors";
+import { 
+  selectCompetitions, 
+  selectIsLoadingCompetitions 
+} from "../features/competition/competitionSelectors";
+
+// 4. Imports de components UI
+import CompetitionList from "../features/competition/components/CompetitionList";
 import EmptyState from "../components/ui/EmptyState";
 import Spinner from "../components/ui/Spinner";
+import { ErrorAlert } from "../components/ui/Alerts";
 
+/**
+ * PÀGINA PRINCIPAL (DASHBOARD)
+ * 
+ * Aquesta és la pantalla que veu l'usuari un cop ha iniciat sessió.
+ * Mostra les jornades esportives que estan actives actualment.
+ */
 export default function PrincipalPage() {
+  // --- 2. Hooks ---
+  
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { token, user } = useSelector(selectAuth);
+  
+  // Obtenim l'usuari i els estats de càrrega de Redux
+  const { user } = useSelector(selectAuth);
+  const isLoadingUser = useSelector(selectIsLoadingUser);
   const competitions = useSelector(selectCompetitions);
-  const compLoading = useSelector(selectCompetitionLoading);
-  const [loading, setLoading] = useState(!user);
+  const isLoadingCompetitions = useSelector(selectIsLoadingCompetitions);
+  
+  // Estat local per gestionar errors de càrrega
   const [error, setError] = useState(null);
 
-  // Obtenir dades de l'usuari des del backend utilitzant thunk
+
+  // --- 3. Variables derivades ---
+  
+  // Filtrem la llista per mostrar només les jornades que no han finalitzat
+  const activeCompetitions = competitions.filter((singleCompetition) => {
+    const isNotFinished = singleCompetition.status !== "FINISHED";
+    return isNotFinished;
+  });
+
+  const activeCountMessage = `${activeCompetitions.length} en curs`;
+
+
+  // --- 4. Efectes (Side Effects) ---
+
+  /**
+   * Efecte: Carregar el perfil de l'usuari
+   * Si hem entrat a la pàgina però no tenim les dades de l'usuari (per exemple,
+   * en refrescar el navegador), les tornem a demanar al backend.
+   */
   useEffect(() => {
-    if (user) {
-      return; // Ja tenim les dades
+    // Si no hi ha usuari i no s'està carregant ja...
+    const needsToLoadProfile = !user && !isLoadingUser;
+
+    if (needsToLoadProfile) {
+      const loadProfileData = async () => {
+        try {
+          // Cridem al thunk que demana el perfil
+          await dispatch(
+            fetchUserProfile()
+          );
+        } catch (err) {
+          // Si falla, guardem el missatge d'error per mostrar-lo a l'usuari
+          setError(err.message);
+        }
+      };
+
+      loadProfileData();
     }
+  }, [user, isLoadingUser, dispatch]);
 
-    const loadProfile = async () => {
-      try {
-        await dispatch(fetchUserProfile()); // demanem les dades del usuari (ja no passem token)
-        setLoading(false);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [user, dispatch]);
-
-  // Si l'usuari està disponible, aturem la càrrega
+  /**
+   * Efecte: Carregar les competicions
+   * Aquest efecte s'executa un sol cop en muntar la pàgina per portar
+   * totes les jornades de la base de dades cap a Redux.
+   */
   useEffect(() => {
-    if (user) setLoading(false);
-  }, [user]);
-
-  // Carregar competicions
-  useEffect(() => {
-    dispatch(loadCompetitions());
+    dispatch(
+      loadCompetitions()
+    );
   }, [dispatch]);
 
+
+  // --- 5. Funcions / Handlers ---
+
+  /**
+   * Tanca la sessió de l'usuari i el torna a la pantalla de login.
+   */
   const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login", { replace: true });
+    // 1. Esborrem el token i les dades de Redux
+    dispatch(
+      logout()
+    );
+    
+    // 2. Redirigim l'usuari cap a fora
+    navigate(
+      "/login", 
+      { 
+        replace: true 
+      }
+    );
   };
 
-  if (loading) {
-    return <Spinner />;
+
+  // --- 6. Renderitzats condicionals (Pantalles de càrrega i error) ---
+
+  // Si encara estem identificant l'usuari, mostrem el Spinner a tota pantalla
+  if (isLoadingUser) {
+    return (
+      <Spinner 
+        message="Carregant el teu perfil..." 
+      />
+    );
   }
 
+  // Si hi ha hagut un error crític carregant l'usuari
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-danger/10 rounded-full">
-            <svg className="w-7 h-7 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-bold text-dark">Error</h2>
-          <p className="text-muted text-sm">{error}</p>
-          <button
-            onClick={handleLogout}
-            className="bg-primary text-white px-6 py-2 rounded-xl font-semibold hover:bg-primary-hover transition cursor-pointer"
-          >
-            Tornar a iniciar sessió
-          </button>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <ErrorAlert 
+            message={error} 
+          />
         </div>
+        <button
+          onClick={handleLogout}
+          className="mt-6 bg-primary text-white px-6 py-2 rounded-xl font-semibold hover:bg-primary-hover transition cursor-pointer"
+        >
+          Tornar a iniciar sessió
+        </button>
       </div>
     );
   }
 
 
+  // --- 7. Render principal (JSX) ---
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Content */}
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            {/* Active jornada */}
-            <section>
-              <h2 className="text-xl font-bold text-dark mb-3">Jornades actives</h2>
-              {compLoading ? (
-                <div className="bg-white rounded-2xl p-6 shadow border border-primary/10 text-center">Carregant jornades...</div>
-              ) : (
-                (() => {
-                  const activeList = competitions.filter((c) => c.status !== "FINISHED");
-                  if (!activeList.length) return <EmptyState />;
-                  return (
-                    <CompetitionsList
-                      jornades={activeList}
-                    />
-                  );
-                })()
-              )}
-            </section>
-          </div>
+    <div className="space-y-8">
+      
+      {/* Estructura de graella: 2 columnes per contingut, 1 lateral per resum */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Columna Principal */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          <section>
+            {/* Capçalera de la secció amb el comptador */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-dark">
+                Jornades actives
+              </h2>
+              <span className="text-xs font-semibold bg-primary/10 text-primary px-3 py-1 rounded-full">
+                {activeCountMessage}
+              </span>
+            </div>
+
+            {/* Contingut segons l'estat de càrrega de les competicions */}
+            {isLoadingCompetitions ? (
+              <Spinner 
+                message="Carregant la llista de jornades..." 
+              />
+            ) : activeCompetitions.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <CompetitionList 
+                competitions={activeCompetitions} 
+              />
+            )}
+          </section>
+
         </div>
-      </main>
+
+        {/* Columna Lateral (Sidebar) */}
+        <aside className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 border border-primary/5 shadow-sm">
+            <h3 className="font-bold text-dark mb-4">
+              Resum del dia
+            </h3>
+            <p className="text-sm text-muted">
+              Benvingut al panell de control de les Jornades Esportives de l'Institut Joaquim Mir.
+            </p>
+          </div>
+        </aside>
+
+      </div>
     </div>
   );
 }

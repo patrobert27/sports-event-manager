@@ -1,92 +1,251 @@
+/**
+ * THUNKS DE COMPETICIONS
+ * 
+ * En aquest fitxer definim les accions asíncrones per a les jornades.
+ * Cada thunk s'encarrega d'un flux de dades:
+ * 1. Activa l'estat de càrrega (Spinner).
+ * 2. Crida al servidor (Service).
+ * 3. Si va bé, guarda les dades a Redux.
+ * 4. Si va malament, guarda l'error.
+ * 5. Desactiva la càrrega.
+ */
+
 import competitionService from "./competitionService";
 import {
-  setLoading,
+  setIsLoadingCompetitions,
   setError,
-  setList,
-  addCompetition,
-  updateCompetition as updateCompetitionAction,
-  removeCompetition as removeCompetitionAction,
+  setSuccess,
+  setCompetitions,
+  setCompetition,
   setActivities,
   setFields,
 } from "./competitionSlice";
 
-// Thunks per gestionar de forma manual l'estat asíncron
-// Aquestes funcions es comuniquen amb l'API i despatxen accions al Redux Store
+/**
+ * THUNK: Carrega la llista completa de competicions.
+ * Es fa servir a la pàgina principal i per refrescar dades.
+ */
+export const loadCompetitions = (params = {}) => {
+  return async (dispatch) => {
+    // Iniciem el Spinner
+    dispatch(
+      setIsLoadingCompetitions(true)
+    );
 
-export const loadCompetitions = () => async (dispatch) => {
-  dispatch(setLoading(true));
-  dispatch(setError(null));
-  try {
-    const data = await competitionService.fetchCompetitions();
-    dispatch(setList(data)); // Actualitza la llista a Redux
-  } catch (err) {
-    dispatch(setError(err.message)); // Desa l'error en cas de fallida
-  } finally {
-    dispatch(setLoading(false));
-  }
+    try {
+      // Demanem la llista al servidor
+      const competitionsList = await competitionService.fetchCompetitions(params);
+      
+      // La guardem a Redux
+      dispatch(
+        setCompetitions(competitionsList)
+      );
+
+    } catch (error) {
+      // Si falla, guardem el missatge d'error
+      dispatch(
+        setError(error.message)
+      );
+
+    } finally {
+      // Parem el Spinner
+      dispatch(
+        setIsLoadingCompetitions(false)
+      );
+    }
+  };
 };
 
-export const createCompetition = (payload) => async (dispatch) => {
-  dispatch(setLoading(true));
-  try {
-    const created = await competitionService.createCompetition(payload);
-    dispatch(addCompetition(created));
-    // Refresquem tota la llista per mantenir l'ordre correcte (segons el backend)
-    await dispatch(loadCompetitions());
-    return created;
-  } catch (err) {
-    dispatch(setError(err.message));
-    throw err;
-  } finally {
-    dispatch(setLoading(false));
-  }
+/**
+ * THUNK: Carrega el detall d'una única competició.
+ */
+export const loadCompetitionById = (competitionId) => {
+  return async (dispatch) => {
+    dispatch(
+      setIsLoadingCompetitions(true)
+    );
+
+    try {
+      const competitionDetail = await competitionService.fetchCompetitionById(competitionId);
+      
+      dispatch(
+        setCompetition(competitionDetail)
+      );
+
+    } catch (error) {
+      dispatch(
+        setError(error.message)
+      );
+
+    } finally {
+      dispatch(
+        setIsLoadingCompetitions(false)
+      );
+    }
+  };
 };
 
-export const updateCompetition = (id, payload) => async (dispatch) => {
-  dispatch(setLoading(true));
-  try {
-    const updated = await competitionService.updateCompetition(id, payload);
-    dispatch(updateCompetitionAction(updated));
-    // Igual que al crear, refresquem la llista de nou
-    await dispatch(loadCompetitions());
-    return updated;
-  } catch (err) {
-    dispatch(setError(err.message));
-    throw err;
-  } finally {
-    dispatch(setLoading(false));
-  }
+/**
+ * THUNK: Crea una nova competició.
+ * Després de crear-la, tornem a carregar la llista per tenir-la actualitzada.
+ */
+export const createCompetition = (payload) => {
+  return async (dispatch) => {
+    dispatch(
+      setIsLoadingCompetitions(true)
+    );
+    
+    // Netegem missatges previs
+    dispatch(setError(null));
+    dispatch(setSuccess(null));
+
+    try {
+      const createdCompetition = await competitionService.createCompetition(payload);
+      
+      dispatch(
+        setSuccess("La jornada s'ha creat correctament.")
+      );
+
+      // Refresquem la llista de la pantalla principal
+      await dispatch(
+        loadCompetitions()
+      );
+
+      return createdCompetition;
+
+    } catch (error) {
+      dispatch(
+        setError(error.message)
+      );
+      throw error;
+
+    } finally {
+      dispatch(
+        setIsLoadingCompetitions(false)
+      );
+    }
+  };
 };
 
-export const deleteCompetition = (id) => async (dispatch) => {
-  dispatch(setLoading(true));
-  try {
-    await competitionService.deleteCompetition(id);
-    dispatch(removeCompetitionAction(id)); // L'esborrem de l'estat local
-    await dispatch(loadCompetitions()); // Refresquem
-  } catch (err) {
-    dispatch(setError(err.message));
-    throw err;
-  } finally {
-    dispatch(setLoading(false));
-  }
+/**
+ * THUNK: Actualitza les dades d'una competició.
+ */
+export const updateCompetition = (competitionId, payload) => {
+  return async (dispatch) => {
+    dispatch(
+      setIsLoadingCompetitions(true)
+    );
+    
+    dispatch(setError(null));
+    dispatch(setSuccess(null));
+
+    try {
+      const updatedCompetition = await competitionService.updateCompetition(competitionId, payload);
+      
+      dispatch(
+        setSuccess("La jornada s'ha actualitzat amb èxit.")
+      );
+
+      // Refresquem tant la llista com el detall de la pantalla on som
+      await dispatch(
+        loadCompetitions()
+      );
+      
+      await dispatch(
+        loadCompetitionById(competitionId)
+      );
+
+      return updatedCompetition;
+
+    } catch (error) {
+      dispatch(
+        setError(error.message)
+      );
+      throw error;
+
+    } finally {
+      dispatch(
+        setIsLoadingCompetitions(false)
+      );
+    }
+  };
 };
 
-export const loadActivities = () => async (dispatch) => {
-  try {
-    const data = await competitionService.fetchActivities();
-    dispatch(setActivities(Array.isArray(data) ? data : []));
-  } catch {
-    dispatch(setActivities([])); // Si falla, llista buida
-  }
+/**
+ * THUNK: Elimina una competició.
+ */
+export const deleteCompetition = (competitionId) => {
+  return async (dispatch) => {
+    dispatch(
+      setIsLoadingCompetitions(true)
+    );
+    
+    dispatch(setError(null));
+    dispatch(setSuccess(null));
+
+    try {
+      await competitionService.deleteCompetition(competitionId);
+      
+      dispatch(
+        setSuccess("La jornada ha estat eliminada correctament.")
+      );
+
+      // Refresquem la llista perquè ja no aparegui l'eliminada
+      await dispatch(
+        loadCompetitions()
+      );
+
+    } catch (error) {
+      dispatch(
+        setError(error.message)
+      );
+      throw error;
+
+    } finally {
+      dispatch(
+        setIsLoadingCompetitions(false)
+      );
+    }
+  };
 };
 
-export const loadFields = () => async (dispatch) => {
-  try {
-    const data = await competitionService.fetchFields();
-    dispatch(setFields(Array.isArray(data) ? data : []));
-  } catch {
-    dispatch(setFields([])); // Si falla, llista buida
-  }
+/**
+ * THUNK: Carrega les activitats (esports) disponibles.
+ */
+export const loadActivities = () => {
+  return async (dispatch) => {
+    try {
+      const activitiesData = await competitionService.fetchActivities();
+      
+      dispatch(
+        setActivities(activitiesData)
+      );
+
+    } catch (error) {
+      // Si falla, simplement deixem la llista buida
+      dispatch(
+        setActivities([])
+      );
+    }
+  };
 };
 
+/**
+ * THUNK: Carrega les instal·lacions (camps).
+ */
+export const loadFields = () => {
+  return async (dispatch) => {
+    try {
+      const fieldsData = await competitionService.fetchFields();
+      
+      dispatch(
+        setFields(fieldsData)
+      );
+
+    } catch (error) {
+      dispatch(
+        setFields([])
+      );
+    }
+  };
+};

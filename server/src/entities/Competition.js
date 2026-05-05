@@ -33,6 +33,11 @@ module.exports = new EntitySchema({
         default: 'REGISTRATION',
       },
 
+      registration_start: {
+        type: 'timestamp',
+        nullable: false,
+      },
+
       registration_deadline: {
         type: 'timestamp',
         nullable: true,
@@ -63,7 +68,8 @@ module.exports = new EntitySchema({
         type: 'many-to-one',
         target: 'User',
         joinColumn: { name: 'creator_id' },
-        nullable: false,
+        nullable: true,
+        onDelete: 'SET NULL',
       },
   },
 });

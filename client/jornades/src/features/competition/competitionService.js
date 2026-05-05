@@ -1,49 +1,101 @@
-import { API_URL, apiFetch } from "../../services/api";
+/**
+ * SERVEI DE COMPETICIONS
+ * 
+ * Aquest fitxer conté les crides directes a l'API del servidor per a tot el que
+ * tingui a veure amb les jornades esportives.
+ */
+
+import { apiFetch } from "../../services/api";
 
 const competitionService = {
+  
+  /**
+   * Demana la llista de totes les competicions.
+   */
   async fetchCompetitions() {
-    return await apiFetch("/jornades/competicions");
+    const competitionsData = await apiFetch("/jornades/competicions");
+    
+    return competitionsData;
   },
 
-  async fetchCompetitionById(id) {
-    return await apiFetch(`/jornades/competicions/${id}`);
+  /**
+   * Demana les dades d'una competició específica per ID.
+   */
+  async fetchCompetitionById(competitionId) {
+    const competitionDetail = await apiFetch(
+      `/jornades/competicions/${competitionId}`
+    );
+    
+    return competitionDetail;
   },
 
-  async createCompetition(payload) {
-    return await apiFetch("/jornades/competicions", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+  /**
+   * Crea una competició nova.
+   */
+  async createCompetition(competitionPayload) {
+    const createdCompetition = await apiFetch(
+      "/jornades/competicions", 
+      {
+        method: "POST",
+        body: JSON.stringify(competitionPayload),
+      }
+    );
+    
+    return createdCompetition;
   },
 
-  async updateCompetition(id, payload) {
-    return await apiFetch(`/jornades/competicions/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
+  /**
+   * Actualitza les dades d'una competició existent.
+   */
+  async updateCompetition(competitionId, competitionPayload) {
+    const updatedCompetition = await apiFetch(
+      `/jornades/competicions/${competitionId}`, 
+      {
+        method: "PATCH",
+        body: JSON.stringify(competitionPayload),
+      }
+    );
+    
+    return updatedCompetition;
   },
 
-  async deleteCompetition(id) {
-    return await apiFetch(`/jornades/competicions/${id}`, {
-      method: "DELETE",
-    });
+  /**
+   * Elimina una competició.
+   */
+  async deleteCompetition(competitionId) {
+    const deletionResult = await apiFetch(
+      `/jornades/competicions/${competitionId}`, 
+      {
+        method: "DELETE",
+      }
+    );
+    
+    return deletionResult;
   },
 
-  // Minimal attempts to fetch related data; backend may not expose these endpoints,
-  // but we try them so the UI can present selects. If unavailable, callers should
-  // handle failure and render empty lists.
+  /**
+   * Obté la llista d'activitats i esports del sistema.
+   * Si falla, retornem una llista buida per no bloquejar la UI.
+   */
   async fetchActivities() {
     try {
-      return await apiFetch("/activities");
-    } catch {
+      const activitiesData = await apiFetch("/activities");
+      
+      return activitiesData;
+    } catch (error) {
       return [];
     }
   },
 
+  /**
+   * Obté la llista d'instal·lacions esportives (camps).
+   */
   async fetchFields() {
     try {
-      return await apiFetch("/fields");
-    } catch {
+      const fieldsData = await apiFetch("/fields");
+      
+      return fieldsData;
+    } catch (error) {
       return [];
     }
   },

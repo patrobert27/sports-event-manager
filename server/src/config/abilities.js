@@ -1,34 +1,53 @@
-const { AbilityBuilder, Ability } = require('@casl/ability');
+const { AbilityBuilder, createMongoAbility } = require('@casl/ability');
+const { STUDENT_VARIANTS, TEACHER_VARIANTS, ADMIN_VARIANTS } = require('../constants/roles');
 
 /**
  * defineAbilitiesFor(user)
- * Devuelve una instancia de Ability construida a partir del usuario.
- * Implementación mínima: admin => manage all, authenticated => read/create, guest => read.
+ * Construeix les regles de permisos basades en el rol de l'usuari.
  */
 function defineAbilitiesFor(user) {
-  const { can, cannot, rules } = new AbilityBuilder(Ability);
+  // console.log('[Abilities] Definint permisos per a lusuari:', { id: user?.id, email: user?.email, role: user?.role });
+  
+  const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
 
+  // 1. Convidats
   if (!user) {
-	// invitado
-	can('read', 'Competition');
-	return new Ability(rules);
+    can('read', 'Competition');
+    can('read', 'Team');
+    return createMongoAbility(rules);
   }
 
-  const roleName = user?.role?.name || String(user?.role || 'user');
-
-  if (roleName === 'admin' || roleName === 'administrator') {
-	can('manage', 'all');
-	return new Ability(rules);
-  }
-
-  // Usuarios autenticados por defecto pueden leer y crear competiciones
+  // 2. Permisos base per a tothom
   can('read', 'Competition');
-  can('create', 'Competition');
+  can('read', 'Activity');
+  can('read', 'Field');
+  can('read', 'Team');
+  can('read', 'TeamPlayer');
 
-  // No permitimos update/delete por defecto salvo admin; esas reglas
-  // pueden ampliarse más tarde con condiciones.
+  const roleName = (user?.role?.name || "").toString().toLowerCase();
 
-  return new Ability(rules);
+  // 3. Admin
+  if (ADMIN_VARIANTS.includes(roleName)) {
+    can('manage', 'all');
+    cannot('create', 'Team');
+  }
+
+  // 4. Estudiants: Crear equips i participar
+  if (STUDENT_VARIANTS.includes(roleName)) {
+    can('create', 'Team');
+    can('create', 'TeamPlayer');
+    can('update', 'Team');
+    can('delete', 'Team');
+    can('manage', 'TeamPlayer');
+  }
+
+  // 5. Professors
+  if (TEACHER_VARIANTS.includes(roleName)) {
+    can('update', 'Team');
+    can('manage', 'TeamPlayer');
+  }
+
+  return createMongoAbility(rules);
 }
 
 module.exports = { defineAbilitiesFor };

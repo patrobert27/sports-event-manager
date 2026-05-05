@@ -25,7 +25,7 @@ export default function Layout() {
         />
         
         {/* Aquí es renderitzen les pàgines filles definides a les rutes (Outlet) */}
-        <main className="flex-1 max-w-5xl mx-auto px-4 py-8 w-full md:ml-64">
+        <main className="flex-1 px-4 py-8 w-full max-w-7xl mx-auto">
           <Outlet />
         </main>
         

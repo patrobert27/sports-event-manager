@@ -8,8 +8,10 @@ import { selectUser } from "../../features/auth/authSelectors";
 export const RoleRule = ({ allowedRoles, children }) => {
   const user = useSelector(selectUser);
   
-  // Si no hi ha usuari o el seu rol no està dins dels permesos, no mostrem res
-  if (!user || !user.role || !allowedRoles.includes(user.role.name)) {
+  // Normalitzem el nom del rol per a la comparació
+  const userRole = user?.role?.name?.toLowerCase();
+  
+  if (!user || !user.role || !allowedRoles.map(r => r.toLowerCase()).includes(userRole)) {
     return null;
   }
   

@@ -1,4 +1,6 @@
-// import React from "react";
+import { useSelector } from "react-redux";
+import { selectUser } from "../../features/auth/authSelectors";
+import { ADMIN_VARIANTS } from "../../constants/roles";
 import SidebarItem from "./SidebarItem";
 import SidebarUserSection from "./SidebarUserSection";
 import SidebarLogoutButton from "./SidebarLogoutButton";
@@ -8,7 +10,18 @@ const DEFAULT_ITEMS = [
   { to: '/jornades/competicions', label: 'Jornades' },
 ];
 
-export default function AppSidebar({ open = false, onClose, defaultItems = DEFAULT_ITEMS, extra = [] }) {
+export default function AppSidebar({ open = false, onClose, extra = [] }) {
+  const user = useSelector(selectUser);
+  const roleName = (user?.role?.name || "").toString().toLowerCase();
+  const isAdmin = ADMIN_VARIANTS.includes(roleName);
+  
+  const items = [...DEFAULT_ITEMS];
+  if (isAdmin) {
+    items.push({ to: '/jornades/usuaris', label: 'Usuaris' });
+    items.push({ to: '/jornades/activitats', label: 'Activitats' });
+    items.push({ to: '/jornades/camps', label: 'Camps' });
+  }
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -26,15 +39,25 @@ export default function AppSidebar({ open = false, onClose, defaultItems = DEFAU
           </div>
 
           <nav className="flex-1 flex flex-col gap-2">
-            {defaultItems.map((it) => (
-              <SidebarItem key={it.to} to={it.to} icon={it.icon}>{it.label}</SidebarItem>
+            {items.map((it) => (
+              <SidebarItem
+                key={it.to}
+                to={it.to}
+                icon={it.icon}>
+                {it.label}
+              </SidebarItem>
             ))}
 
             {extra.length > 0 && (
               <div className="mt-3 border-t border-primary/5 pt-3">
                 <div className="text-xs text-muted uppercase mb-2">Esports</div>
                 {extra.map((it) => (
-                  <SidebarItem key={it.to} to={it.to} icon={it.icon}>{it.label}</SidebarItem>
+                  <SidebarItem
+                    key={it.to}
+                    to={it.to}
+                    icon={it.icon}>
+                    {it.label}
+                  </SidebarItem>
                 ))}
               </div>
             )}

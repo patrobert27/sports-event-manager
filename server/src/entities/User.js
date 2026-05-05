@@ -35,10 +35,6 @@ const User = new EntitySchema({
             length: 255,
             nullable: true,
         },
-        // role_id: {
-        //   type: 'int',
-        //   nullable: false,
-        // },
         created_at: {
             type: 'timestamp',
             default: () => 'CURRENT_TIMESTAMP',

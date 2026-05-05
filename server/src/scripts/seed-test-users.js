@@ -1,4 +1,6 @@
 const { AppDataSource } = require('../config/data-source');
+const { ROLES } = require('../constants/roles');
+const jwt = require('jsonwebtoken');
 
 async function run() {
   await AppDataSource.initialize();
@@ -7,8 +9,10 @@ async function run() {
   const activityRepo = AppDataSource.getRepository('Activity');
   const fieldRepo = AppDataSource.getRepository('Field');
 
+  console.log('🌱 Seeding test users amb constants...');
+
   const roles = {};
-  for (const name of ['admin', 'professor', 'estudiant']) {
+  for (const name of [ROLES.ADMIN, ROLES.TEACHER, ROLES.STUDENT]) {
     let r = await roleRepo.findOne({ where: { name } });
     if (!r) {
       r = roleRepo.create({ name });
@@ -19,9 +23,9 @@ async function run() {
 
   // create users
   const usersData = [
-    { first_name: 'Admin', last_name: 'User', email: 'admin@example.com', password: 'pass', role: roles['admin'] },
-    { first_name: 'Prof', last_name: 'User', email: 'prof@example.com', password: 'pass', role: roles['professor'] },
-    { first_name: 'Student', last_name: 'User', email: 'student@example.com', password: 'pass', role: roles['estudiant'] },
+    { first_name: 'Admin', last_name: 'User', email: 'admin@example.com', password: 'pass', role: roles[ROLES.ADMIN] },
+    { first_name: 'Prof', last_name: 'User', email: 'prof@example.com', password: 'pass', role: roles[ROLES.TEACHER] },
+    { first_name: 'Student', last_name: 'User', email: 'student@example.com', password: 'pass', role: roles[ROLES.STUDENT] },
   ];
 
   const created = [];
@@ -54,7 +58,6 @@ async function run() {
     await fieldRepo.save(field);
   }
 
-  const jwt = require('jsonwebtoken');
   const secret = process.env.JWT_SECRET || 'mi_secreto_super_seguro';
 
   console.log('--- CREATED USERS ---');
