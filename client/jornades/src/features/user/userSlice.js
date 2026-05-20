@@ -1,50 +1,64 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-/**
- * Estat inicial del mòdul d'usuaris.
- * Hem simplificat la gestió per afavorir la consistència mitjançant re-càrregues des de l'API.
- */
+// Estat inicial de la llista general d'usuaris
 const initialState = {
-  users: [], // Llista d'usuaris paginada (abans era 'list')
-  pagination: { 
+  
+  users: [],        // llista de companys o usuaris paginada
+  
+  pagination: {     // dades de control de pagines per la taula
     total: 0, 
     page: 1, 
     limit: 10, 
     totalPages: 0 
   },
-  isLoading: false,
-  error: null,
-  roles: [], // Metadades de rols per als desplegables d'edició
+  
+  isLoading: false, // loading serveix per saber si demanem dades
+  error: null,      // error es guarda per poder ensenyar cartells vermells
+  success: null,    // cartell verd si actualitzem rols d'un company
+  roles: [],        // rols disponibles pel select d'edicio (admin, alumne...)
+  
 };
 
 const userSlice = createSlice({
   name: "user",
   initialState,
+  
   reducers: {
-    // Control d'estats de càrrega i errors
+    
+    // activem el carregant del buscador de companys
     setIsLoading(state, action) {
       state.isLoading = action.payload;
     },
+
+    // error al canviar rols o guardar dades
     setError(state, action) {
       state.error = action.payload;
     },
 
-    // Setter principal per a la llista i la paginació
+    // missatges temporals de que tot ha anat de luxe
+    setSuccess(state, action) {
+      state.success = action.payload;
+    },
+
+    // guardem la llista de companys que ens torna la base dades paginada
     setUsers(state, action) {
       state.users = action.payload.data || [];
       state.pagination = action.payload.pagination || initialState.pagination;
     },
 
-    // Setter per a la llista de rols disponibles
+    // desem la configuracio dels rols possibles
     setRoles(state, action) {
       state.roles = action.payload || [];
     },
+
   },
 });
 
+// exportem les mateixes accions del llistat d'usuaris d'abans
 export const {
   setIsLoading,
   setError,
+  setSuccess,
   setUsers,
   setRoles,
 } = userSlice.actions;

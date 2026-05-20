@@ -1,42 +1,34 @@
-/**
- * SELECTORS D'AUTENTICACIÓ
- * 
- * Els selectors són funcions que ens permeten "triar" parts específiques
- * de l'estat global de Redux de manera fàcil i neta des dels components.
- */
-
-/**
- * Selecciona tot l'objecte d'autenticació (inclou user, token, etc.)
- */
+// selecciona tot l'objecte d'autenticació (inclou user, token, etc.) per a controls generals
 export const selectAuth = (globalState) => {
-  return globalState.auth;
+  const authState = globalState.auth;
+  
+  return authState;
 };
 
-/**
- * Selecciona només les dades de l'usuari (nom, cognom, rol...)
- */
+// agafa només les dades completes del perfil de l'estudiant o profe loguejat
 export const selectUser = (globalState) => {
-  return globalState.auth.user;
+  const user = globalState.auth.user;
+  
+  return user;
 };
 
-/**
- * Selecciona si l'usuari ja ha fet login o no (booleà true/false)
- */
+// comprova de forma ràpida si l'usuari té una sessió activa iniciada
 export const selectIsAuthenticated = (globalState) => {
-  return globalState.auth.isAuthenticated;
+  const isAuth = globalState.auth.isAuthenticated;
+  
+  return isAuth;
 };
 
-/**
- * Selecciona el token JWT guardat
- */
+// agafem el token JWT desat per a poder adjuntar-lo a capçaleres d'API
 export const selectToken = (globalState) => {
-  return globalState.auth.token;
+  const token = globalState.auth.token;
+  
+  return token;
 };
 
-/**
- * Selecciona l'estat de càrrega de l'usuari
- * (Serveix per mostrar Spinner mentre fem el fetchUserProfile)
- */
+// indica si s'estan demanant les dades inicials del perfil al backend
 export const selectIsLoadingUser = (globalState) => {
-  return globalState.auth.isLoadingUser;
+  const loading = globalState.auth.isLoadingUser;
+  
+  return loading;
 };

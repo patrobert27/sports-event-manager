@@ -1,76 +1,62 @@
-/**
- * SELECTORS DE COMPETICIONS
- * 
- * Els selectors ens ajuden a agafar parts de l'estat de les competicions
- * des de qualsevol component de React de forma neta.
- */
-
-/**
- * Selector base: Agalla tot l'estat del slice 'competition'
- */
+// agafem tot l'estat del slice de competicions (jornades)
 export const selectCompetitionState = (globalState) => {
-  return globalState.competition;
+  const compState = globalState.competition;
+  
+  return compState;
 };
 
-/**
- * Selecciona la llista completa de totes les jornades
- */
+// selecciona la llista completa de totes les jornades actives
 export const selectCompetitions = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const list = state.competitions || [];
   
-  return state.competitions || [];
+  return list;
 };
 
-/**
- * Selecciona la jornada que l'usuari està veient actualment en detall
- */
+// jornada seleccionada que l'estudiant esta veient actualment
 export const selectCurrentCompetition = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const current = state.currentCompetition;
   
-  return state.currentCompetition;
+  return current;
 };
 
-/**
- * Selecciona si s'estan carregant les dades de les competicions (Spinner)
- */
+// boleà de carrega de competicions per a mostrar la rodeta de Spinner
 export const selectIsLoadingCompetitions = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const loading = state.isLoadingCompetitions;
   
-  return state.isLoadingCompetitions;
+  return loading;
 };
 
-/**
- * Selecciona el missatge d'error de les competicions
- */
+// missatges d'error de peticions a la seccio de jornades
 export const selectCompetitionError = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const err = state.error;
   
-  return state.error;
+  return err;
 };
 
-/**
- * Selecciona el missatge d'èxit de les competicions
- */
+// missatges d'exit per als cartells
 export const selectCompetitionSuccess = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const success = state.success;
   
-  return state.success;
+  return success;
 };
 
-/**
- * Selecciona la llista d'activitats (esports) disponibles
- */
+// llista completa dels esports i activitats de les jornades
 export const selectCompetitionActivities = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const activities = state.activities || [];
   
-  return state.activities || [];
+  return activities;
 };
 
-/**
- * Selecciona la llista de camps i instal·lacions disponibles
- */
+// pavellons o pistes disponibles triades per a fer els partits
 export const selectCompetitionFields = (globalState) => {
   const state = selectCompetitionState(globalState);
+  const fields = state.fields || [];
   
-  return state.fields || [];
+  return fields;
 };

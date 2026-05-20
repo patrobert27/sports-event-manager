@@ -1,9 +1,7 @@
-// 1. Imports de biblioteques
 import React, { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 
-// 2. Imports d'accions (Thunks)
 import {
   createCompetition,
   updateCompetition,
@@ -11,104 +9,56 @@ import {
   loadFields
 } from "../competitionThunks";
 
-// 3. Imports de selectors
 import {
   selectCompetitionActivities,
   selectCompetitionFields
 } from "../competitionSelectors";
 
-/**
- * COMPONENT: CompetitionForm
- * 
- * Aquest component és un formulari "intel·ligent" que serveix tant per crear
- * com per editar jornades esportives.
- * Utilitza 'react-hook-form' per gestionar les validacions i l'estat dels camps.
- */
-
 // --- Helpers per formatar dates per als inputs HTML ---
-
-/**
- * Converteix una data de la base de dades a format YYYY-MM-DD
- */
 const formatDateForInput = (dateString) => {
   if (!dateString) {
     return "";
   }
-  
   const dateObject = new Date(dateString);
-  
   if (isNaN(dateObject.getTime())) {
     return "";
   }
-  
   return dateObject.toISOString().split("T")[0];
 };
 
-/**
- * Converteix una data a format YYYY-MM-DDTHH:MM (per a datetime-local)
- */
 const formatDateTimeForInput = (dateString) => {
   if (!dateString) {
     return "";
   }
-  
   const dateObject = new Date(dateString);
-  
   if (isNaN(dateObject.getTime())) {
     return "";
   }
-  
-  // Tallem la cadena per quedar-nos només fins als minuts
   return dateObject.toISOString().slice(0, 16);
 };
 
-
+// Aquest formulari intel·ligent permet crear una jornada o bé editar-la si ja existeix
 export default function CompetitionForm({
   initialData,
   onSuccess,
   onCancel,
   isEdit = false
 }) {
-  // --- 2. Hooks ---
-  
   const dispatch = useDispatch();
-
-  // Obtenim la llista d'activitats i camps de Redux
   const activitiesList = useSelector(selectCompetitionActivities);
   const fieldsList = useSelector(selectCompetitionFields);
 
-
-  // --- 3. Efectes de càrrega inicial ---
-
-  /**
-   * Carreguem les metadades (esports i camps) si encara no les tenim a Redux.
-   * Això ens permet omplir els <select> del formulari.
-   */
+  // demanem els esports i les pistes disponibles un cop s'obre el formulari del profe
   useEffect(() => {
     if (activitiesList.length === 0) {
-      dispatch(
-        loadActivities()
-      ).catch((error) => {
-        console.error("No s'han pogut carregar les activitats:", error);
-      });
+      dispatch(loadActivities()).catch(console.error);
     }
-
     if (fieldsList.length === 0) {
-      dispatch(
-        loadFields()
-      ).catch((error) => {
-        console.error("No s'han pogut carregar els camps:", error);
-      });
+      dispatch(loadFields()).catch(console.error);
     }
   }, [dispatch, activitiesList.length, fieldsList.length]);
 
-
-  // --- 4. Configuració del Formulari ---
-
-  /**
-   * Calculem els valors per defecte basant-nos en si estem editant o creant.
-   * Fem servir useMemo per no tornar-ho a calcular si initialData no canvia.
-   */
+  // preparem els valors per defecte de l'esdeveniment a Redux
   const formDefaultValues = useMemo(() => {
     return {
       name: initialData?.name || "",
@@ -118,12 +68,13 @@ export default function CompetitionForm({
       registration_start: formatDateTimeForInput(initialData?.registration_start || new Date()),
       registration_deadline: formatDateTimeForInput(initialData?.registration_deadline),
       available_courts: initialData?.available_courts || 1,
+      match_duration: initialData?.match_duration || 30,
+      matches_start_time: initialData?.matches_start_time || initialData?.start_time || "",
       activity_id: initialData?.activity_id || initialData?.activity?.id || "",
       field_id: initialData?.field_id || initialData?.field?.id || "",
     };
   }, [initialData]);
 
-  // Inicialitzem react-hook-form
   const {
     register,
     handleSubmit,
@@ -137,25 +88,16 @@ export default function CompetitionForm({
     defaultValues: formDefaultValues
   });
 
-  /**
-   * Si les dades inicials canvien (per exemple, s'ha carregat la competició
-   * de la base de dades després d'obrir el modal), reiniciem el formulari.
-   */
+  // si es canvien les dades inicials, resetejem el formulari
   useEffect(() => {
     if (initialData) {
       reset(formDefaultValues);
     }
   }, [initialData, reset, formDefaultValues]);
 
-
-  // --- 5. Handlers ---
-
-  /**
-   * Funció que s'executa en prémer el botó de "Desar".
-   */
+  // handler de submit per processar i desar la informació de les jornades
   const handleFormSubmit = async (formData) => {
     try {
-      // Preparem el payload netejant els tipus de dades (strings a números)
       const submitPayload = {
         ...formData,
         available_courts: Number(formData.available_courts),
@@ -166,63 +108,54 @@ export default function CompetitionForm({
         registration_start: formData.registration_start || null,
         registration_deadline: formData.registration_deadline || null,
         start_time: formData.start_time || null,
+        match_duration: Number(formData.match_duration),
+        matches_start_time: formData.matches_start_time || null,
       };
 
       if (isEdit) {
-        // Mode EDICIÓ
         await dispatch(
           updateCompetition(initialData.id, submitPayload)
         );
       } else {
-        // Mode CREACIÓ
         await dispatch(
           createCompetition(submitPayload)
         );
       }
 
-      // Si ens han passat una funció onSuccess (ex: tancar el modal), la cridem
       if (onSuccess) {
         onSuccess();
       }
-
-      // Si era una creació, buidem el formulari
+      
       if (!isEdit) {
         reset();
       }
-
+      
     } catch (err) {
-      console.error("Error en processar el formulari:", err);
+      console.error("Error al desar la jornada:", err);
     }
   };
-
-
-  // --- 6. Renderitzat (JSX) ---
 
   return (
     <form 
       onSubmit={handleSubmit(handleFormSubmit)} 
-      className="space-y-5"
+      className="space-y-3.5 animate-fade-in"
     >
-      {/* SECCIÓ: NOM */}
-      <div className="space-y-1.5">
+      
+      {/* SECCIÓ: NOM DE LA COMPETICIÓ */}
+      <div className="space-y-1">
         <label className="block text-sm font-semibold text-dark">
           Nom de la competició *
         </label>
+        
         <input
           {...register("name", { 
             required: "El nom és obligatori",
-            minLength: { 
-              value: 5, 
-              message: "El nom ha de tenir almenys 5 caràcters" 
-            },
-            maxLength: { 
-              value: 100, 
-              message: "El nom és massa llarg (màxim 100)" 
-            }
+            minLength: { value: 5, message: "Mínim 5 caràcters" }
           })}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
           placeholder="Ex: Torneig de Primavera 2024"
         />
+        
         {errors.name && (
           <p className="text-danger text-xs mt-1">
             {errors.name.message}
@@ -231,32 +164,21 @@ export default function CompetitionForm({
       </div>
 
       {/* SECCIÓ: DATA I HORA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Data de l'esdeveniment *
           </label>
+          
           <input
             type="date"
             {...register("date", { 
-              required: "La data és obligatòria",
-              validate: (value) => {
-                // Si estem editant, no bloquegem si la data ja va passar
-                if (isEdit) {
-                  return true;
-                }
-                
-                const selectedDate = new Date(value);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                const isFutureDate = selectedDate >= today;
-                return isFutureDate || "La data no pot ser anterior a avui";
-              }
+              required: "La data és obligatòria" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
           />
+          
           {errors.date && (
             <p className="text-danger text-xs mt-1">
               {errors.date.message}
@@ -264,134 +186,169 @@ export default function CompetitionForm({
           )}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Hora d'inici *
           </label>
+          
           <input
             type="time"
             {...register("start_time", { 
               required: "L'hora és obligatòria" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
           />
-          {errors.start_time && (
-            <p className="text-danger text-xs mt-1">
-              {errors.start_time.message}
-            </p>
-          )}
         </div>
 
       </div>
 
       {/* SECCIÓ: ESPORT I PAVELLÓ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Esport / Activitat *
           </label>
+          
           <select
             {...register("activity_id", { 
               required: "Selecciona un esport" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer"
           >
-            <option value="">
-              Selecciona una activitat...
-            </option>
-            {activitiesList.map((singleActivity) => {
+            <option value="">Selecciona...</option>
+            {activitiesList.map((a) => {
               return (
-                <option 
-                  key={singleActivity.id} 
-                  value={singleActivity.id}
-                >
-                  {singleActivity.name}
+                <option key={a.id} value={a.id}>
+                  {a.name}
                 </option>
               );
             })}
           </select>
-          {errors.activity_id && (
-            <p className="text-danger text-xs mt-1">
-              {errors.activity_id.message}
-            </p>
-          )}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Pavelló / Camp *
           </label>
+          
           <select
             {...register("field_id", { 
               required: "Selecciona un camp" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer"
           >
-            <option value="">
-              Selecciona una instal·lació...
-            </option>
-            {fieldsList.map((singleField) => {
+            <option value="">Selecciona...</option>
+            {fieldsList.map((f) => {
               return (
-                <option 
-                  key={singleField.id} 
-                  value={singleField.id}
-                >
-                  {singleField.name}
+                <option key={f.id} value={f.id}>
+                  {f.name}
                 </option>
               );
             })}
           </select>
-          {errors.field_id && (
-            <p className="text-danger text-xs mt-1">
-              {errors.field_id.message}
-            </p>
-          )}
         </div>
 
       </div>
 
-      {/* SECCIÓ: PLACES I INSCRIPCIÓ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* SECCIÓ: CONFIGURACIÓ DE PARTITS */}
+      <div className="bg-gray-50/50 p-3.5 rounded-2xl border border-gray-100/60 space-y-2">
         
-        <div className="space-y-1.5 col-span-1 sm:col-span-2">
+        <h4 className="text-[10px] font-black text-muted uppercase tracking-widest">
+          Configuració de Partits
+        </h4>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          
+          <div className="space-y-1">
             <label className="block text-sm font-semibold text-dark">
-              Pistes disponibles *
+              Durada (minuts) *
             </label>
+            
             <input
-                type="number"
-                {...register("available_courts", {
-                  required: "Les pistes són obligatòries",
-                  valueAsNumber: true,
-                  min: { 
-                    value: 1, 
-                    message: "Com a mínim ha d'haver-hi 1 pista" 
-                  },
-                  max: { 
-                    value: 20, 
-                    message: "Màxim 20 pistes permeses" 
-                  }
-                })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              type="number"
+              {...register("match_duration", { 
+                required: true, 
+                min: 5 
+              })}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             />
-            {errors.available_courts && (
-              <p className="text-danger text-xs mt-1">
-                {errors.available_courts.message}
-              </p>
-            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-dark">
+              Hora primer partit *
+            </label>
+            
+            <input
+              type="time"
+              {...register("matches_start_time", { 
+                required: true 
+              })}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+          </div>
+
+        </div>
+      </div>
+
+      {/* SECCIÓ: PISTES I ESTAT (Agrupats en 2 columnes per estalviar espai vertical) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        
+        <div className="space-y-1">
+          <label className="block text-sm font-semibold text-dark">
+            Pistes disponibles *
+          </label>
+          
+          <input
+            type="number"
+            {...register("available_courts", { 
+              required: true, 
+              min: 1 
+            })}
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+          />
         </div>
 
-        <div className="space-y-1.5">
+        {isEdit ? (
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-dark">
+              Estat actual
+            </label>
+            
+            <select 
+              {...register("status")} 
+              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+            >
+              <option value="REGISTRATION">Inscripció</option>
+              <option value="GROUP_STAGE">Fase de grups</option>
+              <option value="SEMIFINALS">Semifinals</option>
+              <option value="FINAL_STAGE">Final</option>
+              <option value="FINISHED">Finalitzada</option>
+            </select>
+          </div>
+        ) : (
+          <div className="hidden sm:block opacity-0 select-none pointer-events-none" />
+        )}
+
+      </div>
+
+      {/* SECCIÓ: DATES D'INSCRIPCIÓ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Inici d'inscripció *
           </label>
+          
           <input
             type="datetime-local"
-            {...register("registration_start", {
-              required: "La data d'inici és obligatòria"
+            {...register("registration_start", { 
+              required: "Obligatori" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           />
+          
           {errors.registration_start && (
             <p className="text-danger text-xs mt-1">
               {errors.registration_start.message}
@@ -399,89 +356,42 @@ export default function CompetitionForm({
           )}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <label className="block text-sm font-semibold text-dark">
             Límit d'inscripció *
           </label>
+          
           <input
             type="datetime-local"
-            {...register("registration_deadline", {
-              required: "La data límit és obligatòria",
-              validate: (value, formValues) => {
-                if (!value) {
-                  return true;
-                }
-                
-                const deadlineDate = new Date(value);
-                
-                // El tancament ha de ser abans de que comenci la jornada
-                if (formValues.date) {
-                  const eventDate = new Date(formValues.date);
-                  if (deadlineDate > eventDate) {
-                    return "El tancament ha de ser abans de l'esdeveniment";
-                  }
-                }
-
-                // El tancament ha de ser després de que obrin les inscripcions
-                if (formValues.registration_start) {
-                    const startDate = new Date(formValues.registration_start);
-                    if (deadlineDate <= startDate) {
-                      return "El tancament ha de ser posterior a l'inici";
-                    }
-                }
-
-                return true;
-              }
+            {...register("registration_deadline", { 
+              required: "Obligatori" 
             })}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           />
-          {errors.registration_deadline && (
-            <p className="text-danger text-xs mt-1">
-              {errors.registration_deadline.message}
-            </p>
-          )}
         </div>
 
       </div>
 
-      {/* SECCIÓ: ESTAT (Només apareix en mode edició) */}
-      {isEdit && (
-        <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-dark">
-            Estat actual de la Jornada
-          </label>
-          <select
-            {...register("status")}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          >
-            <option value="REGISTRATION">Inscripció</option>
-            <option value="GROUP_STAGE">Fase de grups</option>
-            <option value="SEMIFINALS">Semifinals</option>
-            <option value="FINAL_STAGE">Final</option>
-            <option value="FINISHED">Finalitzada</option>
-          </select>
-        </div>
-      )}
-
-      {/* BOTONS D'ACCIÓ */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-gray-50">
+      {/* BOTONS DEL FORMULARI */}
+      <div className="flex flex-row items-center gap-3 pt-4 border-t border-gray-100 w-full">
+        
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full sm:w-auto bg-primary text-white font-bold px-6 py-2.5 rounded-xl hover:bg-primary-hover transition-all shadow-md shadow-primary/20 disabled:opacity-50 disabled:shadow-none cursor-pointer"
+          className="flex-1 bg-primary text-white font-black px-4 py-2.5 rounded-xl hover-lift shadow-lg shadow-primary/25 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-sm truncate"
         >
-          {isSubmitting ? "Desant dades..." : isEdit ? "Actualitzar Jornada" : "Crear Competició"}
+          {isSubmitting ? "Processant..." : isEdit ? "Actualitzar" : "Crear"}
         </button>
         
-        <button
-          type="button"
-          onClick={onCancel}
-          className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-gray-200 text-dark font-semibold hover:bg-gray-50 transition-all cursor-pointer text-center"
+        <button 
+          type="button" 
+          onClick={onCancel} 
+          className="px-4 py-2.5 bg-gray-50 text-muted hover:text-dark font-bold rounded-xl hover:bg-gray-100 transition-all cursor-pointer active:scale-[0.98] text-sm shrink-0"
         >
           Cancel·lar
         </button>
-      </div>
 
+      </div>
     </form>
   );
 }

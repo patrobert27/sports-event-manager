@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Search, Plus, Filter, X } from 'lucide-react';
+import { Search, Plus, X } from 'lucide-react';
 import { 
   loadActivities, 
   addActivity,
@@ -41,6 +41,16 @@ const ActivitiesPage = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Temporitzador per netejar missatges d'èxit
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        dispatch(setSuccess(null));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, dispatch]);
+
   const fetchActivities = useCallback(() => {
     dispatch(loadActivities({ search: debouncedSearch }));
   }, [dispatch, debouncedSearch]);
@@ -64,12 +74,10 @@ const ActivitiesPage = () => {
   };
 
   const handleDeleteActivity = async (id) => {
-    if (window.confirm("Estàs segur que vols eliminar aquesta activitat?")) {
-      try {
-        await dispatch(removeActivity(id));
-      } catch (err) {
-        console.error("Error eliminant activitat:", err);
-      }
+    try {
+      await dispatch(removeActivity(id));
+    } catch (err) {
+      console.error("Error eliminant activitat:", err);
     }
   };
 
@@ -132,10 +140,10 @@ const ActivitiesPage = () => {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-error/10 border border-error/20 rounded-2xl text-error text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-          <div className="w-2 h-2 rounded-full bg-error" />
+        <div className="mb-6 p-4 bg-danger/5 border border-danger/20 rounded-2xl text-danger text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <div className="w-2 h-2 rounded-full bg-danger" />
           <span className="flex-1">{error}</span>
-          <button onClick={() => dispatch(setError(null))} className="text-error/50 hover:text-error transition-colors">
+          <button onClick={() => dispatch(setError(null))} className="text-danger/50 hover:text-danger transition-colors">
             <X size={16} strokeWidth={3} />
           </button>
         </div>

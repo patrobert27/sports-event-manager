@@ -1,33 +1,79 @@
-import { useSelector } from "react-redux";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { selectUser } from "../../features/auth/authSelectors";
+import { loadBettingStatus } from "../../features/predictions/predictionThunks";
 import { ADMIN_VARIANTS } from "../../constants/roles";
 import SidebarItem from "./SidebarItem";
 import SidebarUserSection from "./SidebarUserSection";
 import SidebarLogoutButton from "./SidebarLogoutButton";
+import { LayoutDashboard, Trophy, Megaphone, Users, Activity, MapPin, Award, Coins } from "lucide-react";
 
 const DEFAULT_ITEMS = [
-  { to: '/jornades', label: 'Panell' },
-  { to: '/jornades/competicions', label: 'Jornades' },
+  { to: '/jornades', label: 'Jornades', icon: <Trophy size={20} /> },
+  { to: '/jornades/ranking', label: 'Rànquing', icon: <Award size={20} /> },
+  { to: '/jornades/comunicats', label: 'Comunicats', icon: <Megaphone size={20} /> },
 ];
 
 export default function AppSidebar({ open = false, onClose, extra = [] }) {
   const user = useSelector(selectUser);
+  const dispatch = useDispatch();
+  const isBettingOpen = useSelector(state => state.predictions.isBettingOpen);
+  const isRankingVisible = useSelector(state => state.predictions.isRankingVisible);
+  
   const roleName = (user?.role?.name || "").toString().toLowerCase();
   const isAdmin = ADMIN_VARIANTS.includes(roleName);
   
-  const items = [...DEFAULT_ITEMS];
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  // Carregar estat d'apostes al muntar
+  useEffect(() => {
+    dispatch(loadBettingStatus());
+  }, [dispatch]);
+
+  const items = [...DEFAULT_ITEMS].filter(it => {
+    // Si és el rànquing, només mostrar si la visibilitat està activa o si ets admin
+    if (it.to === '/jornades/ranking') {
+      return isRankingVisible || isAdmin;
+    }
+    return true;
+  });
+
   if (isAdmin) {
-    items.push({ to: '/jornades/usuaris', label: 'Usuaris' });
-    items.push({ to: '/jornades/activitats', label: 'Activitats' });
-    items.push({ to: '/jornades/camps', label: 'Camps' });
+    items.push({ to: '/jornades/usuaris', label: 'Usuaris', icon: <Users size={20} /> });
+    items.push({ to: '/jornades/activitats', label: 'Activitats', icon: <Activity size={20} /> });
+    items.push({ to: '/jornades/camps', label: 'Camps', icon: <MapPin size={20} /> });
+    items.push({ to: '/jornades/control-apostes', label: 'Prediccions', icon: <Coins size={20} /> });
   }
+
+  const allItems = [...items, ...extra];
+
+  const isPathActive = (it) => {
+    if (!it.to || it.to === '#' || !it.to.startsWith('/')) return false;
+    if (currentPath === it.to) return true;
+
+    const itToWithSlash = it.to.endsWith('/') ? it.to : `${it.to}/`;
+    const currentPathWithSlash = currentPath.endsWith('/') ? currentPath : `${currentPath}/`;
+
+    if (currentPathWithSlash.startsWith(itToWithSlash)) {
+      const hasBetterMatch = allItems.some(other => {
+        if (other.to === it.to) return false;
+        const otherToWithSlash = other.to.endsWith('/') ? other.to : `${other.to}/`;
+        return currentPathWithSlash.startsWith(otherToWithSlash) && other.to.length > it.to.length;
+      });
+      return !hasBetterMatch;
+    }
+
+    return false;
+  };
 
   return (
     <>
       {/* Overlay for mobile */}
       <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity ${open ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={onClose} />
 
-      <aside className={`fixed left-0 top-0 bottom-0 z-50 w-64 bg-white p-4 transform transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static md:block md:shadow-none shadow-lg`}>
+      <aside className={`fixed left-0 top-0 bottom-0 z-50 w-64 bg-white p-4 transform transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:sticky md:top-0 md:h-screen md:block md:shadow-none shadow-lg overflow-y-auto`}>
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-dark">Navegació</h3>
@@ -43,7 +89,8 @@ export default function AppSidebar({ open = false, onClose, extra = [] }) {
               <SidebarItem
                 key={it.to}
                 to={it.to}
-                icon={it.icon}>
+                icon={it.icon}
+                isActive={isPathActive(it)}>
                 {it.label}
               </SidebarItem>
             ))}
@@ -55,7 +102,8 @@ export default function AppSidebar({ open = false, onClose, extra = [] }) {
                   <SidebarItem
                     key={it.to}
                     to={it.to}
-                    icon={it.icon}>
+                    icon={it.icon}
+                    isActive={isPathActive(it)}>
                     {it.label}
                   </SidebarItem>
                 ))}

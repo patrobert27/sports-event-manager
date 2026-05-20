@@ -125,6 +125,7 @@ export default function PrincipalPage() {
     return (
       <Spinner 
         message="Carregant el teu perfil..." 
+        fullPage
       />
     );
   }

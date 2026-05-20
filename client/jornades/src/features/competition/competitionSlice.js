@@ -1,106 +1,83 @@
-/**
- * SLICE DE COMPETICIONS
- * 
- * Aquest fitxer gestiona l'estat de les jornades esportives a Redux.
- * Aquí guardem la llista de totes les competicions, els detalls d'una 
- * competició concreta quan l'estem veient, i dades auxiliars com 
- * els esports (activitats) i les instal·lacions (camps).
- */
-
 import { createSlice } from "@reduxjs/toolkit";
 
-// --- ESTAT INICIAL ---
-
+// Estat inicial de les competicions (jornades) guardat a Redux
 const initialState = {
-  // Llista completa de competicions (GET /competitions)
-  competitions: [],           
-
-  // Detall de la competició seleccionada (GET /competitions/:id)
-  currentCompetition: null,   
-
-  // Booleà per saber si estem esperant dades del servidor
-  isLoadingCompetitions: false,
-
-  // Guardem missatges d'error si alguna operació falla
-  error: null,
-
-  // Guardem missatges d'èxit per donar feedback a l'usuari (ex: "Creat amb èxit")
-  success: null,              
-
-  // Llista d'activitats disponibles al sistema (per als selectors dels formularis)
-  activities: [],
-
-  // Llista de camps o instal·lacions disponibles
-  fields: [],
+  
+  competitions: [],             // llista completa de totes les jornades (GET /jornades)
+  
+  currentCompetition: null,     // detall de la competicio que l'usuari està mirant (GET /jornades/:id)
+  
+  isLoadingCompetitions: false, // serveix per a ensenyar la rodeta de carrega (Spinner)
+  
+  error: null,                  // missatge d'error si alguna accio de jornades peta
+  
+  success: null,                // cartellet verd quan creem o editem una competicio de luxe
+  
+  activities: [],               // esports disponibles per als selects dels formularis
+  
+  fields: [],                   // instal·lacions actives (pistes, pavellons...)
+  
 };
-
-// --- DEFINICIÓ DEL SLICE ---
 
 const competitionSlice = createSlice({
   name: "competition",
   initialState: initialState,
+  
   reducers: {
     
-    /**
-     * Activa o desactiva l'indicador de càrrega.
-     */
+    // controlem la rodeta de carrega global per a les jornades
     setIsLoadingCompetitions(state, action) {
       const isCurrentlyLoading = action.payload;
+      
       state.isLoadingCompetitions = isCurrentlyLoading;
     },
 
-    /**
-     * Guarda un missatge d'error.
-     */
+    // guardem missatges en vermell al slice per mostrar-los si quelcom falla
     setError(state, action) {
       const errorMessage = action.payload;
+      
       state.error = errorMessage;
     },
 
-    /**
-     * Guarda un missatge d'èxit.
-     */
+    // missatges temporals d'exit per als formularis de les jornades
     setSuccess(state, action) {
       const successMessage = action.payload;
+      
       state.success = successMessage;
     },
 
-    /**
-     * Actualitza la llista completa de competicions.
-     * S'executa després de carregar totes les jornades de l'API.
-     */
+    // col·loquem el llistat sencer de jornades a la graella principal
     setCompetitions(state, action) {
       const competitionsList = action.payload;
+      
       state.competitions = competitionsList || [];
     },
 
-    /**
-     * Guarda les dades d'una sola competició concreta.
-     */
+    // desem de forma activa els detalls d'una jornada esportiva concreta
     setCompetition(state, action) {
       const competitionDetail = action.payload;
+      
       state.currentCompetition = competitionDetail;
     },
 
-    /**
-     * Guarda la llista d'activitats (esports).
-     */
+    // llista dels esports que el professor pot triar
     setActivities(state, action) {
       const activitiesList = action.payload;
+      
       state.activities = activitiesList || [];
     },
 
-    /**
-     * Guarda la llista de camps/pavellons.
-     */
+    // llista de pavellons i pistes carregada del backend
     setFields(state, action) {
       const fieldsList = action.payload;
+      
       state.fields = fieldsList || [];
     },
+
   },
 });
 
-// Exportem les accions perquè els components i thunks les puguin utilitzar
+// exportem les accions sense tocar-ne cap de nom ni de paràmetre
 export const {
   setIsLoadingCompetitions,
   setError,
@@ -111,5 +88,4 @@ export const {
   setFields,
 } = competitionSlice.actions;
 
-// Exportem el reducer per a la store principal
 export default competitionSlice.reducer;

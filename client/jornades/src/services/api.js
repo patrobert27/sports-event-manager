@@ -74,7 +74,12 @@ export const apiFetch = async (endpoint, options = {}) => {
   }
 
   // 6. Llegim les dades en format JSON
-  const responseData = await response.json();
+  let responseData;
+  try {
+    responseData = await response.json();
+  } catch (err) {
+    throw new Error(`El servidor ha retornat un format no vàlid (HTML en lloc de JSON) al cridar a ${endpoint}`);
+  }
 
   /**
    * El nostre backend sol respondre amb un objecte: { success: true, data: [...] }

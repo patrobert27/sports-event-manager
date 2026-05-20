@@ -178,8 +178,8 @@ export default function LoginPage() {
               </span>
             </button>
 
-            {/* Secció secreta només per a programadors (mode DEV) */}
-            {import.meta.env.DEV && (
+            {/* Secció secreta només per a programadors (mode DEV)) */}
+            {import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true' && (
               <div className="pt-4 border-t border-gray-100">
                 <p className="text-sm text-muted text-center mb-3">
                   Eines de desenvolupament

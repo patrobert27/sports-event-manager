@@ -1,208 +1,182 @@
-// 1. Imports de biblioteques
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Edit2, Trash2, MapPin, Users, Calendar } from "lucide-react";
 
-// 2. Imports de components i dades
 import JornadaStatusBadge from "../../../components/ui/JornadaStatusBadge";
 import RoleRule from "../../../components/auth/RoleRule";
 import { ROLES } from "../../../constants/roles";
 import { deleteCompetition } from "../competitionThunks";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
-/**
- * COMPONENT: CompetitionCard
- * 
- * Aquesta targeta mostra un resum d'una jornada esportiva.
- * Inclou el nom, l'esport, la data, el lloc i l'estat actual.
- * També permet editar o esborrar la jornada si l'usuari és administrador.
- */
+// aquesta card mostra una jornada concreta dins del llistat de competicions de l'escola
 export default function CompetitionCard({ competition, onEdit }) {
-  // --- 2. Hooks ---
   
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
+
   // Estat per controlar si el modal de confirmació d'esborrat està obert
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-
-  // --- 3. Variables derivades ---
-  
-  // Agafem el color de l'activitat per pintar la vora de la targeta
+  // Agafem el color de l'activitat per pintar la vora de la targeta de forma dinàmica
   const activityColor = competition.activity?.color || "#4FA8F5";
-  
+
   // Formatem la data per mostrar-la en format local (Català)
-  const formattedDate = competition.date 
-    ? new Date(competition.date).toLocaleDateString("ca-ES") 
+  const formattedDate = competition.date
+    ? new Date(competition.date).toLocaleDateString("ca-ES")
     : "Sense data";
 
   const fieldName = competition.field?.name ?? "Sense pavelló assignat";
 
-
-  // --- 4. Funcions / Handlers ---
-
-  /**
-   * Navega cap a la pàgina de detall de la competició.
-   */
+  // Navega cap a la pàgina de detall de la competició on hi ha els grups i partits
   const handleViewDetails = () => {
-    navigate(
-      `/jornades/competicions/${competition.id}`
-    );
+    navigate(`/jornades/${competition.id}`);
   };
 
-  /**
-   * Obre el modal de confirmació abans d'esborrar.
-   */
+  // Obre el modal de confirmació abans d'esborrar per no fer accions accidentals
   const handleOpenDeleteModal = (event) => {
-    // Evitem que el clic es propagui a la resta de la targeta
     event.stopPropagation();
-    
+
     setShowDeleteConfirm(true);
   };
 
-  /**
-   * Executa l'esborrat real quan l'usuari confirma al modal.
-   */
+  // Executa l'esborrat real quan l'usuari confirma al modal de seguretat
   const handleConfirmDelete = () => {
-    // Cridem al thunk d'esborrat
     dispatch(
       deleteCompetition(competition.id)
     );
-    
-    // Tanquem el modal
+
     setShowDeleteConfirm(false);
   };
 
-  /**
-   * Obre el formulari d'edició (passant la competició al component pare).
-   */
+  // Obre el formulari d'edició (passant la competició al component pare)
   const handleEditClick = (event) => {
     event.stopPropagation();
-    
-    // Cridem a la funció onEdit que ens ve per props des del pare
+
     onEdit(competition);
   };
 
-
-  // --- 5. Render (JSX) ---
-
   return (
-    <div className="group relative bg-white rounded-2xl border border-primary/5 p-4 md:p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col md:flex-row items-center gap-4 md:gap-6 overflow-hidden">
+    <div className="group relative bg-white rounded-2xl border border-gray-100 pl-5 pr-4 py-4 md:pl-6 md:pr-5 md:py-5 shadow-sm hover-lift premium-shadow animate-fade-in flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 overflow-hidden">
       
-      {/* Barra lateral de color segons l'esport */}
+      {/* Barra lateral de color segons l'esport triat */}
       <div
         className="absolute left-0 top-0 h-full w-2 opacity-80"
-        style={{ 
-          backgroundColor: activityColor 
+        style={{
+          backgroundColor: activityColor,
         }}
       />
 
-      <div className="flex-1 w-full pl-2 md:pl-4">
+      <div className="flex-1 w-full pl-0">
         
-        {/* FILA SUPERIOR: Títol i Botons d'acció */}
+        {/* FILA SUPERIOR: Títol de la jornada i Botons d'acció de l'admin o alumne */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          
           <div>
             <h4 className="text-xl font-bold text-dark group-hover:text-primary transition-colors">
               {competition.name}
             </h4>
-            
-            <div className="flex items-center gap-2 mt-1">
+
+            <div className="flex items-center gap-2 mt-1.5">
+              
               {/* Etiqueta de l'esport */}
               <span
-                className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                style={{ 
-                  backgroundColor: activityColor 
+                className="text-[10px] font-black px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider"
+                style={{
+                  backgroundColor: activityColor,
                 }}
               >
                 {competition.activity?.name}
               </span>
-              
-              {/* Estat actual (Inscripció, Finalitzada, etc.) */}
+
+              {/* Estat actual (Inscripció oberta, Fase de grups, Finalitzada) */}
               <JornadaStatusBadge 
-                status={competition.status} 
+                status={competition.status}
+                registrationStart={competition.registration_start}
+                registrationDeadline={competition.registration_deadline}
               />
+
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Botó principal per veure detalls */}
-            <button
-              onClick={handleViewDetails}
-              className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-xl font-bold text-sm transition-all cursor-pointer"
-            >
-              Veure Detalls
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+            
+            {/* Grilla principal de botons d'acció */}
+            <div className="flex gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+              
+              <button
+                onClick={handleViewDetails}
+                className="flex-1 sm:flex-none sm:w-[140px] bg-primary/10 text-primary hover:bg-primary hover:text-white border border-transparent px-4 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                Veure Detalls
+              </button>
 
-            {/* Icones d'administració (només visibles per Admins) */}
-            <RoleRule 
-              allowedRoles={[ROLES.ADMIN]}
-            >
-              <div className="flex gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
+              <RoleRule allowedRoles={[ROLES.ADMIN]}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/jornades/${competition.id}/equips`);
+                  }}
+                  className="flex-1 sm:flex-none sm:w-[140px] bg-white border border-primary/20 text-primary hover:bg-primary hover:text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
+                  title="Gestionar Equips"
+                >
+                  <Users size={16} />
+                  <span>Equips</span>
+                </button>
+              </RoleRule>
+
+            </div>
+
+            {/* Botons d'edició/esborrat per a l'administrador */}
+            <RoleRule allowedRoles={[ROLES.ADMIN]}>
+              <div className="flex items-center justify-end sm:justify-start gap-2 w-full sm:w-auto border-t sm:border-none border-gray-100 pt-3 sm:pt-0">
+                <span className="text-[9px] font-black text-muted uppercase tracking-wider mr-auto sm:hidden">
+                  Opcions de gestió
+                </span>
+                
                 <button
                   onClick={handleEditClick}
-                  className="p-2 text-muted hover:text-primary hover:bg-white rounded-lg transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl transition-all duration-200 cursor-pointer bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-sm active:scale-95"
                   title="Editar Jornada"
                 >
-                  <Edit2 
-                    size={18} 
-                  />
+                  <Edit2 size={16} />
                 </button>
+                
                 <button
                   onClick={handleOpenDeleteModal}
-                  className="p-2 text-muted hover:text-danger hover:bg-white rounded-lg transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl transition-all duration-200 cursor-pointer bg-red-50 text-red-600 hover:bg-red-500 hover:text-white shadow-sm active:scale-95"
                   title="Eliminar Jornada"
                 >
-                  <Trash2 
-                    size={18} 
-                  />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </RoleRule>
-          </div>
 
+          </div>
         </div>
 
-        {/* FILA INFERIOR: Informació de lloc, data i pistes */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-50 text-sm text-muted">
+        {/* FILA INFERIOR: Informació de localització, data i pistes */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 pt-3.5 border-t border-gray-100 text-xs sm:text-sm text-muted">
           
           <div className="flex items-center gap-2">
-            <Calendar 
-              size={16} 
-              className="text-primary/60" 
-            />
-            <span>
-              {formattedDate}
-            </span>
+            <Calendar size={15} className="text-primary/60" />
+            <span>{formattedDate}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <MapPin 
-              size={16} 
-              className="text-primary/60" 
-            />
-            <span className="truncate">
-              {fieldName}
-            </span>
+            <MapPin size={15} className="text-primary/60" />
+            <span className="truncate">{fieldName}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <Users 
-              size={16} 
-              className="text-primary/60" 
-            />
-            <span>
-              {competition.available_courts} Pistes totals
-            </span>
+            <Users size={15} className="text-primary/60" />
+            <span>{competition.available_courts} Pistes totals</span>
           </div>
 
         </div>
 
       </div>
 
-      {/* Modal de confirmació d'esborrat (es manté amagat fins que showDeleteConfirm és true) */}
+      {/* Modal de confirmació d'esborrat per evitar desastres sense voler */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         title="Eliminar Jornada"
@@ -212,7 +186,6 @@ export default function CompetitionCard({ competition, onEdit }) {
           setShowDeleteConfirm(false);
         }}
       />
-
     </div>
   );
 }

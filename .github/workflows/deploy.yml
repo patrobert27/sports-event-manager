@@ -1,0 +1,40 @@
+name: 🚀 Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/jornades
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Backend
+            cd server
+            npm install --production
+            npm run db:migrate
+            npm run db:seed:minimal
+            
+            # Frontend
+            cd ../client/jornades
+            npm install
+            npm run build
+            
+            # Restart Apps
+            cd ../../server
+            pm2 restart jornades-api || pm2 start src/server.js --name "jornades-api"
+            pm2 save

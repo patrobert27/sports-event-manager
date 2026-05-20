@@ -1,31 +1,18 @@
-// 1. Imports de biblioteques
 import React, { useState } from "react";
-
-// 2. Imports de components propis
 import CompetitionCard from "./CompetitionCard";
 import EditCompetitionModal from "./EditCompetitionModal";
 import { InfoAlert } from "../../../components/ui/Alerts";
 
-/**
- * COMPONENT: CompetitionList
- * 
- * Aquest component s'encarrega de pintar una llista de targetes (CompetitionCard).
- * Si la llista està buida, mostra un missatge d'avís informatiu.
- * També pot gestionar el modal d'edició si el component pare no ho fa.
- */
+// Aquest component s'encarrega de pintar la llista completa de targetes de jornades actives
 export default function CompetitionList({ 
   competitions = [], 
   onEdit 
 }) {
-  // --- 2. Hooks ---
-
+  
   // Guardem quina competició s'està editant actualment per obrir el modal
   const [editingCompetition, setEditingCompetition] = useState(null);
 
-
-  // --- 3. Renderitzats condicionals ---
-
-  // Si no hi ha cap competició per mostrar...
+  // Si no hi ha cap competició per mostrar a la base de dades
   const isEmpty = !competitions || competitions.length === 0;
 
   if (isEmpty) {
@@ -36,14 +23,10 @@ export default function CompetitionList({
     );
   }
 
-
-  // --- 4. Funcions / Handlers ---
-
-  /**
-   * Gestiona el clic al botó d'editar d'una de les targetes.
-   */
+  // Gestiona el clic al botó d'editar d'una de les targetes de jornada
   const handleEditClick = (competitionToEdit) => {
-    // Si el component que ens fa servir (el pare) ja té una funció per editar, la cridem
+    
+    // Si el component pare ja té una funció per editar (com a la pàgina de l'admin), la cridem
     const parentHasEditHandler = typeof onEdit === "function";
 
     if (parentHasEditHandler) {
@@ -51,17 +34,15 @@ export default function CompetitionList({
       return;
     }
     
-    // Si no, guardem la competició aquí mateix per obrir el nostre propi modal
+    // Si no, guardem la competició aquí mateix per obrir el nostre propi modal intern de seguretat
     setEditingCompetition(competitionToEdit);
   };
-
-
-  // --- 5. Render (JSX) ---
 
   return (
     <>
       {/* Contenidor de la llista en format vertical (columna) */}
       <div className="flex flex-col gap-4 w-full">
+        
         {competitions.map((singleCompetition) => {
           return (
             <CompetitionCard
@@ -71,12 +52,13 @@ export default function CompetitionList({
             />
           );
         })}
+
       </div>
 
       {/* 
-          MODAL D'EDICIÓ:
+          MODAL D'EDICIÓ INTERN:
           Només el mostrem si tenim una competició seleccionada (editingCompetition)
-          i si el pare no s'està encarregant de l'edició.
+          i si el pare no s'està encarregant directament de l'edició.
       */}
       {!onEdit && editingCompetition && (
         <EditCompetitionModal

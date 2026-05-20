@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Search, MapPin, Plus, X } from 'lucide-react';
+import { Search, Plus, X } from 'lucide-react';
 import { 
   loadFields,
   addField,
@@ -10,8 +10,11 @@ import {
 import { 
   selectFields, 
   selectFieldsLoading, 
-  selectFieldsError 
+  selectFieldsError,
+  selectFieldsSuccess
 } from '../features/field/fieldSelectors';
+import { setSuccess, setError } from '../features/field/fieldSlice';
+import { SuccessAlert } from '../components/ui/Alerts';
 import FieldList from '../features/field/components/FieldList';
 import AddField from '../features/field/components/AddField';
 import EditFieldModal from '../features/field/components/EditFieldModal';
@@ -24,6 +27,7 @@ const FieldsPage = () => {
   const fields = useSelector(selectFields);
   const isLoading = useSelector(selectFieldsLoading);
   const error = useSelector(selectFieldsError);
+  const success = useSelector(selectFieldsSuccess);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -46,7 +50,7 @@ const FieldsPage = () => {
     try {
       await dispatch(addField(data));
       setIsAddFormOpen(false);
-    } catch (err) {
+    } catch {
       // Gestionat per l'estat global
     }
   };
@@ -54,7 +58,7 @@ const FieldsPage = () => {
   const handleUpdateField = async (id, data) => {
     try {
       await dispatch(editField(id, data));
-    } catch (err) {
+    } catch {
       // Gestionat per l'estat global
     }
   };
@@ -62,14 +66,25 @@ const FieldsPage = () => {
   const handleDeleteField = async (id) => {
     try {
       await dispatch(removeField(id));
-    } catch (err) {
+    } catch {
       // Gestionat per l'estat global
     }
   };
 
   useEffect(() => {
+    dispatch(setError(null));
     fetchFields();
-  }, [fetchFields]);
+  }, [fetchFields, dispatch]);
+
+  // Temporitzador per netejar missatges d'èxit
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        dispatch(setSuccess(null));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, dispatch]);
 
   return (
     <div className="space-y-8">
@@ -126,9 +141,18 @@ const FieldsPage = () => {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-error/10 border border-error/20 rounded-2xl text-error text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-          <div className="w-2 h-2 rounded-full bg-error" />
-          {error}
+        <div className="mb-6 p-4 bg-danger/5 border border-danger/20 rounded-2xl text-danger text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <div className="w-2 h-2 rounded-full bg-danger" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => dispatch(setError(null))} className="text-danger/50 hover:text-danger transition-colors">
+            <X size={16} strokeWidth={3} />
+          </button>
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-6">
+          <SuccessAlert message={success} />
         </div>
       )}
 

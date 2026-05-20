@@ -1,29 +1,21 @@
-/**
- * SLICE D'AUTENTICACIÓ (Redux Toolkit)
- * 
- * Aquest fitxer gestiona l'estat de la sessió de l'usuari a tota l'aplicació.
- * S'encarrega de guardar el token de seguretat (JWT) i les dades del perfil.
- * També sincronitza aquestes dades amb el 'localStorage' del navegador perquè 
- * la sessió no es perdi en tancar la pestanya.
- */
-
 import { createSlice } from "@reduxjs/toolkit";
 
-/**
- * Funció auxiliar per desxifrar un token JWT.
- * El token és una cadena de text amb 3 parts separades per punts.
- * La part del mig (payload) conté la informació de l'usuari.
- */
+// Funció auxiliar per desxifrar un token JWT.
+// El token és una cadena de text amb 3 parts separades per punts.
+// La part del mig (payload) conté la informació de l'usuari.
 function decodeJwt(token) {
   try {
+    
     // La segona part del token (índex 1) conté les dades en format Base64
     const base64Payload = token.split(".")[1];
     
     // Descodifiquem la Base64 i ho convertim a un objecte JavaScript
     const decodedJson = atob(base64Payload);
+    
     const payloadObject = JSON.parse(decodedJson);
     
     return payloadObject;
+    
   } catch (error) {
     // Si el token està malament o corrupte, retornem null
     return null;
@@ -37,6 +29,7 @@ let persistedToken = localStorage.getItem("token");
 let persistedUser = null;
 
 if (persistedToken) {
+  
   // Verifiquem si el token que hem trobat encara és vàlid o si ha caducat
   const decodedToken = decodeJwt(persistedToken);
   
@@ -48,16 +41,20 @@ if (persistedToken) {
     console.warn("La sessió ha caducat. S'esborren les dades locals.");
     
     persistedToken = null;
+    
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    
   } else {
     // Si el token és bo, mirem si també teníem les dades de l'usuari guardades
     try {
+      
       const userString = localStorage.getItem("user");
       
       if (userString) {
         persistedUser = JSON.parse(userString);
       }
+      
     } catch (parseError) {
       // Si el JSON de l'usuari està trencat, el netegem
       localStorage.removeItem("user");
@@ -86,11 +83,10 @@ const initialState = {
 const authSlice = createSlice({
   name: "auth",
   initialState: initialState,
+  
   reducers: {
     
-    /**
-     * Guarda totes les credencials de cop.
-     */
+    // Guarda totes les credencials de cop un cop fem login correctament
     setCredentials(state, action) {
       const { token, user } = action.payload;
       
@@ -98,26 +94,23 @@ const authSlice = createSlice({
       state.user = user;
       state.isAuthenticated = true;
       
-      // Ho persistim al navegador
+      // Ho persistim al navegador per a no perdre la sessió al fer F5
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
     },
 
-    /**
-     * Guarda només el token (per exemple, quan tornem de Google).
-     */
+    // Guarda només el token (per exemple, quan tornem de l'autenticació de Google)
     setToken(state, action) {
       const newToken = action.payload;
       
       state.token = newToken;
       state.isAuthenticated = true;
       
+      // guardem el token per a mantenir la sessio oberta
       localStorage.setItem("token", newToken);
     },
 
-    /**
-     * Actualitza les dades del perfil de l'usuari.
-     */
+    // Actualitza les dades del perfil de l'usuari en calent
     setUser(state, action) {
       const userData = action.payload;
       
@@ -126,26 +119,51 @@ const authSlice = createSlice({
       localStorage.setItem("user", JSON.stringify(userData));
     },
 
-    /**
-     * Tanca la sessió (Logout).
-     * Esborra absolutament tot de l'estat i del navegador.
-     */
+    // Tanca la sessió (Logout) i neteja la memòria local
     logout(state) {
       state.token = null;
       state.user = null;
       state.isAuthenticated = false;
       
+      // esborrem el rastre de la sessio de l'estudiant
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     },
 
-    /**
-     * Activa o desactiva l'indicador de càrrega.
-     */
+    // Activa o desactiva l'indicador de càrrega per a l'spinner
     setLoadingUser(state, action) {
       const isCurrentlyLoading = action.payload;
+      
       state.isLoadingUser = isCurrentlyLoading;
     },
+
+    // Actualitza només els crèdits de l'usuari mitjançant WebSockets de forma activa
+    updateCredits(state, action) {
+      if (state.user) {
+        state.user.credits = action.payload;
+        
+        localStorage.setItem("user", JSON.stringify(state.user));
+      }
+    },
+
+    // Actualitza només els punts de la sessió des de WebSockets al rebre encerts
+    updatePoints(state, action) {
+      if (state.user) {
+        state.user.session_points = action.payload;
+        
+        localStorage.setItem("user", JSON.stringify(state.user));
+      }
+    },
+
+    // Reseteja els punts de la sessió a 0 per a tothom a l'acte
+    resetPoints(state) {
+      if (state.user) {
+        state.user.session_points = 0;
+        
+        localStorage.setItem("user", JSON.stringify(state.user));
+      }
+    },
+
   },
 });
 
@@ -155,8 +173,10 @@ export const {
   setToken, 
   setUser, 
   logout, 
-  setLoadingUser 
+  setLoadingUser,
+  updateCredits,
+  updatePoints,
+  resetPoints
 } = authSlice.actions;
 
-// Exportem el reducer per configurar-lo a la store de Redux
 export default authSlice.reducer;

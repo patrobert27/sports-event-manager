@@ -1,78 +1,62 @@
-/**
- * SERVEI D'AUTENTICACIÓ
- * 
- * Aquest fitxer s'encarrega exclusivament de parlar amb el servidor (backend).
- * No guarda dades de Redux, només fa les crides HTTP i retorna la resposta.
- */
+import { API_URL, apiFetch } from "../../services/api";
 
-import { 
-  API_URL, 
-  apiFetch 
-} from "../../services/api";
-
-/**
- * Obté el perfil de l'usuari autenticat.
- * Envia una petició GET a /auth/profile.
- */
+// aquest servei nomes fa de pont amb el backend per a temes d'inici de sessió
 const fetchUserProfile = async () => {
-  // Fem servir apiFetch perquè ja afegeix automàticament el token Authorization
+
+  // Fem servir apiFetch perquè ja afegeix automàticament el token d'Authorization
   const profileData = await apiFetch("/auth/profile");
-  
+
   return profileData;
 };
 
-/**
- * Retorna la URL completa per anar a fer el login amb Google.
- */
+// retorna la URL completa per a rebre l'autenticació de Google OAuth
 const getGoogleLoginUrl = () => {
   const fullUrl = `${API_URL}/auth/google`;
-  
+
   return fullUrl;
 };
 
-/**
- * Login de desenvolupament (DEV).
- * Permet entrar ràpidament amb un email sense Google.
- */
+// login de desenvolupament (DEV). Permet entrar al moment triant un correu fictici
 const devLogin = async (email) => {
-  // Fem un fetch normal a l'endpoint de desenvolupament
+
+  // demanem el token d'accés a l'endpoint de proves
   const response = await fetch(
-    `${API_URL}/auth/dev`, 
+    `${API_URL}/auth/dev`,
     {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json' 
+      headers: {
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        email: email 
+      body: JSON.stringify({
+        email: email
       }),
     }
   );
 
-  // Si la resposta no és bona (codi 400, 500, etc.)
+  // si el correu de dev no és bo, disparem un error descriptiu
   if (!response.ok) {
-    // Intentem llegir el missatge d'error del JSON
+
     const errorJson = await response.json().catch(() => {
       return null;
     });
-    
+
     const errorMessage = errorJson?.message || 'El login de dev ha fallat al servidor';
-    
+
     throw new Error(errorMessage);
   }
 
-  // Si tot ha anat bé, extraiem el token
+  // si tot és correcte, extraiem el token JWT retornat pel backend
   const responseJson = await response.json();
   const sessionToken = responseJson.token;
-  
+
   return sessionToken;
 };
 
-// Exportem totes les funcions agrupades en un objecte
+// exportem el grup de funcions del servei sense canviar cap nom
 const authService = {
-  fetchUserProfile: fetchUserProfile,
-  getGoogleLoginUrl: getGoogleLoginUrl,
-  devLogin: devLogin,
+  fetchUserProfile,
+  getGoogleLoginUrl,
+  devLogin,
 };
 
 export default authService;

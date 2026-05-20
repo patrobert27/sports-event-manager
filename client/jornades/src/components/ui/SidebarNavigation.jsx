@@ -15,7 +15,7 @@ export default function SidebarNavigation() {
         {items.map((it) => (
           <Link
             key={it.key}
-            to={`/jornades/competicions?activity=${encodeURIComponent(it.label)}`}
+            to={`/jornades?activity=${encodeURIComponent(it.label)}`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted hover:bg-primary/5 hover:text-dark transition"
           >
             <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">{it.label[0]}</span>
